@@ -154,11 +154,6 @@ const App: React.FC = () => {
                   serverStatus === 'no_db' ? 'bg-amber-400 animate-pulse' : 
                   serverStatus === 'checking' ? 'bg-blue-400 animate-pulse' : 'bg-red-500'
                 )}></div>
-                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
-                  {serverStatus === 'online' ? 'Service Active' : 
-                   serverStatus === 'no_db' ? 'DB Mismatch' : 
-                   serverStatus === 'checking' ? 'Checking Link...' : 'Service Offline'}
-                </span>
               </div>
             </div>
           </div>

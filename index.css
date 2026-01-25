@@ -1,0 +1,97 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --primary: #FF5722;
+    --primary-glow: rgba(255, 87, 34, 0.2);
+    --secondary: #10B981;
+  }
+  
+  body {
+    @apply font-sans bg-[#F1F5F9] text-slate-800 antialiased overflow-x-hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Constraint SVGs globally to avoid the "massive icon" glitch */
+  svg {
+    @apply w-5 h-5 block;
+  }
+}
+
+@layer components {
+  /* ACTION BUTTONS */
+  .btn-primary {
+    @apply px-6 py-4 rounded-2xl font-black uppercase tracking-widest
+           bg-[var(--primary)] text-white shadow-lg shadow-[var(--primary-glow)]
+           transition-all duration-300 transform
+           active:scale-95 hover:brightness-110 disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .btn-secondary {
+    @apply px-6 py-4 rounded-2xl font-black uppercase tracking-widest
+           bg-slate-900 text-white shadow-xl
+           transition-all duration-300 transform
+           active:scale-95 hover:bg-black;
+  }
+
+  .btn-ghost {
+    @apply p-2.5 rounded-xl bg-slate-50 text-slate-500 border border-slate-100
+           hover:text-[var(--primary)] hover:bg-white hover:shadow-md transition-all;
+  }
+
+  /* FORMS */
+  .input-standard {
+    @apply w-full p-4 bg-slate-100 border-2 border-transparent rounded-2xl
+           font-bold text-sm outline-none transition-all
+           focus:bg-white focus:border-[var(--primary)] placeholder:text-slate-400;
+  }
+
+  /* CONTAINERS */
+  .card-premium {
+    @apply bg-white rounded-[40px] shadow-sm border border-slate-100 transition-all;
+  }
+
+  .card-premium-hover {
+    @apply hover:shadow-xl hover:-translate-y-1 transition-all;
+  }
+
+  /* NAVIGATION */
+  .nav-item {
+    @apply flex items-center px-4 py-3 text-xs font-bold rounded-xl transition-all uppercase tracking-widest;
+  }
+
+  .nav-item-active {
+    @apply bg-[var(--primary)] text-white shadow-lg shadow-[var(--primary-glow)];
+  }
+
+  .nav-item-inactive {
+    @apply text-slate-400 hover:bg-slate-50 hover:text-slate-600;
+  }
+
+  /* BADGES */
+  .badge-status {
+    @apply px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5;
+  }
+
+  /* SCROLLBARS */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Animations */
+@keyframes scaleUp {
+  from { opacity: 0; transform: scale(0.97) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.animate-scale-up { animation: scaleUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.animate-spin { animation: spin 1s linear infinite; }

@@ -1,0 +1,8 @@
+{
+  "name": "HoleView Market",
+  "description": "A comprehensive multi-role marketplace PWA for ETB transactions, product management, and commission tracking.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

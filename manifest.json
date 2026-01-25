@@ -1,0 +1,22 @@
+
+{
+  "short_name": "HoleView",
+  "name": "HoleView Market",
+  "icons": [
+    {
+      "src": "https://placehold.co/192x192/FF5722/white?text=HV",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "https://placehold.co/512x512/FF5722/white?text=HV",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "theme_color": "#FF5722",
+  "description": "A comprehensive multi-role marketplace PWA."
+}

@@ -38,21 +38,6 @@
 </head>
 <body>
     <div id="root"></div>
-    
-    <div id="failsafe-ui">
-       <p>Module sequence interrupted</p>
-       <button onclick="window.location.reload(true)">Hard Reset Node</button>
-    </div>
-
-    <script>
-      setTimeout(() => {
-        const root = document.getElementById('root');
-        if (root && root.innerHTML === '') {
-          document.getElementById('failsafe-ui').style.display = 'block';
-        }
-      }, 5000);
-    </script>
-
     <script type="module" src="/index.tsx"></script>
 </body>
 </html>

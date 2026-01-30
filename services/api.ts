@@ -19,7 +19,7 @@ const getApiBaseUrl = () => {
     // 2. Fallback to your actual AWS EC2 Public IPv4
     // NOTE: If using Cloudflare Pages (HTTPS), this might trigger a "Mixed Content" block.
     // It is highly recommended to set up a domain with SSL for the API.
-    return 'http://3.148.177.49:3005';
+    return 'http://3.148.177.49:3001';
 };
 
 const BASE_URL = getApiBaseUrl() + '/api';

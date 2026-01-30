@@ -22,7 +22,7 @@ const getApiBaseUrl = () => {
     }
 
     // 3. Default to local development server
-    return 'http://3.137.214.50:3005';
+    return 'http://3.148.177.49:3005';
 };
 
 const BASE_URL = getApiBaseUrl() + '/api';

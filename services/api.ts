@@ -5,7 +5,7 @@ import { User, Product, Order, Ad, Subscription, ChatThread, VerificationStatus 
  * API ENDPOINT CONFIGURATION
  * Port changed to 3001 to match backend terminal configuration.
  */
-const BASE_URL = 'https://occupied-remembered-beds-fever.trycloudflare.com';
+const BASE_URL = ' https://surplus-environmental-rated-acrobat.trycloudflare.com';
 
 const handleResponse = async (response: Response) => {
     const contentType = response.headers.get('content-type');

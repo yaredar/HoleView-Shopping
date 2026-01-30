@@ -2,12 +2,13 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   server: {
-    port: 3005,
-    host: '3.148.177.49',
+    port: 5173,
+    host: '0.0.0.0', // Allows access from mobile phones on the same network for PWA testing
     strictPort: false,
   },
   build: {
     target: 'esnext',
+    outDir: 'dist',
   },
   define: {
     'process.env': {

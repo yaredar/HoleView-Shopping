@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { UserRole, Product, User } from './types';
 import Layout from './components/Layout';
@@ -39,14 +41,22 @@ const App: React.FC = () => {
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.BUYER);
 
   const [isProcessing, setIsProcessing] = useState(false);
-  const [serverStatus, setServerStatus] = useState<'online' | 'no_db' | 'offline' | 'checking'>('checking');
+  const [serverStatus, setServerStatus] = useState<'online' | 'no_db' | 'offline' | 'checking' | 'blocked'>('checking');
 
   useEffect(() => {
     let isMounted = true;
     const check = async () => {
       try {
         const isHealthy = await api.checkHealth();
-        if (isMounted) setServerStatus(isHealthy ? 'online' : 'no_db');
+        if (isMounted) {
+            if (isHealthy) setServerStatus('online');
+            else {
+                // If it's not healthy but reachable, it's a DB issue
+                // If it's unreachable, it might be blocked
+                if (window.location.protocol === 'https:') setServerStatus('blocked');
+                else setServerStatus('no_db');
+            }
+        }
       } catch {
         if (isMounted) setServerStatus('offline');
       }
@@ -67,6 +77,7 @@ const App: React.FC = () => {
       case 'Marketplace': return <Marketplace products={store.products} ads={store.ads} addToCart={(p) => store.addToCart(p)} onSelectProduct={setSelectedProduct} search={globalSearchTerm} />;
       case 'Sales Hub': return <SellerDashboard orders={store.orders} setOrders={store.setOrders} sellerName={`${store.currentUser?.first_name} ${store.currentUser?.last_name}`} products={store.products} sellerPhone={store.currentUser?.phone || ''} />;
       case 'My Orders': return <MyOrders orders={store.orders} setOrders={store.setOrders} currentUserPhone={store.currentUser?.phone || ''} searchTerm={globalSearchTerm} />;
+      // Use store.setUsers instead of the undefined setUsers
       case 'Users': return <UsersTable users={store.users} setUsers={store.setUsers} canCreate={store.currentUser?.role === UserRole.SUPER_USER} currentUser={store.currentUser} searchTerm={globalSearchTerm} />;
       case 'Payments': return <PaymentsTable orders={store.orders} currentUser={store.currentUser} searchTerm={globalSearchTerm} />;
       case 'Products': return <ProductsPage products={store.products} searchTerm={globalSearchTerm} />;
@@ -91,7 +102,7 @@ const App: React.FC = () => {
       const user = await api.login(phone, password);
       if (user) {
         if (user.status === 'deactive') {
-          alert("SECURITY: Account suspended. Contact support 0920-274-181.");
+          alert("SECURITY: Account suspended. Contact support.");
           setIsProcessing(false);
           return;
         }
@@ -110,7 +121,11 @@ const App: React.FC = () => {
         alert("ACCESS DENIED: Credentials mismatch.");
       }
     } catch (err: any) {
-      alert(`SYSTEM ERROR: ${err.message || 'Check connection'}`);
+      if (err.message.includes('SECURITY_BLOCK')) {
+          alert("🚨 BROWSER BLOCK DETECTED:\n\nYour browser blocked the connection to the server because it is not using HTTPS. \n\nFIX: Click the Lock icon in the URL bar -> Site Settings -> Allow 'Insecure Content' -> Reload Page.");
+      } else {
+          alert(`SYSTEM ERROR: ${err.message || 'Check connection'}`);
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -133,11 +148,13 @@ const App: React.FC = () => {
         alert(`SUCCESS: Account created. Please Sign In.`);
         setIsSigningUp(false);
       } else alert(`ERROR: ${result.error}`);
-    } catch { alert("INFRASTRUCTURE ERROR."); } finally { setIsProcessing(false); }
+    } catch (err: any) { 
+        alert(`INFRASTRUCTURE ERROR: ${err.message}`); 
+    } finally { setIsProcessing(false); }
   };
 
   const handleForgotPassword = () => {
-    alert("To Reset Password Call support 0920-274-181\nየሚስጥ ቁልፍ ከጠፋቦዎ እባክዎ ወደ ድጋፍ ይደውሉ 0920-274-181");
+    alert("PASSWORD RECOVERY: Please contact the system administrator or visit the nearest service hub to reset your password.");
   };
 
   if (!store.isAuthenticated) {
@@ -151,9 +168,16 @@ const App: React.FC = () => {
               <div className="badge-status bg-slate-50 border border-slate-100 px-4 py-2">
                 <div className={cn("w-2.5 h-2.5 rounded-full transition-all", 
                   serverStatus === 'online' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 
+                  serverStatus === 'blocked' ? 'bg-red-600 animate-pulse shadow-[0_0_8px_red]' :
                   serverStatus === 'no_db' ? 'bg-amber-400 animate-pulse' : 
-                  serverStatus === 'checking' ? 'bg-blue-400 animate-pulse' : 'bg-red-500'
+                  serverStatus === 'checking' ? 'bg-blue-400 animate-pulse' : 'bg-red-50'
                 )}></div>
+                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
+                  {serverStatus === 'online' ? 'Service Active' : 
+                   serverStatus === 'blocked' ? 'Security Blocked (Check Console)' :
+                   serverStatus === 'no_db' ? 'DB Mismatch' : 
+                   serverStatus === 'checking' ? 'Checking Link...' : 'Service Offline'}
+                </span>
               </div>
             </div>
           </div>
@@ -199,6 +223,13 @@ const App: React.FC = () => {
               <span>{isSigningUp ? "Sign Up" : "Sign In"}</span>
             </button>
           </form>
+
+          {serverStatus === 'blocked' && (
+            <div className="mt-6 p-4 bg-red-50 rounded-2xl border border-red-100 text-[10px] text-red-600 font-bold leading-relaxed uppercase">
+              Important: Browser is blocking the server connection. 
+              Please click the site settings (lock icon) and Allow "Insecure content".
+            </div>
+          )}
         </div>
       </div>
     );

@@ -97,7 +97,7 @@ export const api = {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
     try {
-        const res = await fetch(`${BASE_URL}/api/login`, {
+        const res = await fetch(`${VITE_API_URL}/api/login`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   credentials: 'include',

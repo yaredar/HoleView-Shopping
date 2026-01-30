@@ -13,7 +13,7 @@ export default defineConfig({
   define: {
     'process.env': {
       API_KEY: process.env.API_KEY || '',
-      VITE_API_URL: process.env.VITE_API_URL || 'https://occupied-remembered-beds-fever.trycloudflare.com'
+      VITE_API_URL: process.env.VITE_API_URL || ' https://surplus-environmental-rated-acrobat.trycloudflare.com'
     }
   }
 });

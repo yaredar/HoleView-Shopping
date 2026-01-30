@@ -97,12 +97,12 @@ export const api = {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
     try {
-        const res = await fetch(`${BASE_URL}/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone, password: key }),
-            signal: controller.signal
-        });
+        const res = await fetch(`${BASE_URL}/api/login`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  credentials: 'include',
+  body: JSON.stringify({ phone, key })
+});
         clearTimeout(timeoutId);
         return await handleResponse(res);
     } catch (e: any) { 

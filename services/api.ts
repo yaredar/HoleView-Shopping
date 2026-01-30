@@ -1,27 +1,24 @@
+
 import { User, Product, Order, Ad, Subscription, ChatThread, VerificationStatus } from '../types';
 
-// Robust helper to get the API base URL across different environments (Vite, Process, or Fallback)
+/**
+ * PRODUCTION CONNECTIVITY LOGIC
+ * Prioritizes: 
+ * 1. Cloudflare Environment Variable (VITE_API_URL)
+ * 2. Explicit AWS EC2 IP (Fallback)
+ */
 const getApiBaseUrl = () => {
-    // 1. Try Vite's import.meta.env
+    // 1. Try Environment Variables (Injected via Cloudflare Pages Settings)
     try {
         const viteEnv = (import.meta as any).env;
         if (viteEnv && viteEnv.VITE_API_URL) {
             return viteEnv.VITE_API_URL;
         }
-    } catch (e) {
-        // Silently ignore if import.meta is restricted
-    }
+    } catch (e) {}
 
-    // 2. Try standard process.env (for some CI/CD or legacy build setups)
-    try {
-        if (typeof process !== 'undefined' && process.env && (process.env as any).VITE_API_URL) {
-            return (process.env as any).VITE_API_URL;
-        }
-    } catch (e) {
-        // Silently ignore
-    }
-
-    // 3. Default to local development server
+    // 2. Fallback to your actual AWS EC2 Public IPv4
+    // NOTE: If using Cloudflare Pages (HTTPS), this might trigger a "Mixed Content" block.
+    // It is highly recommended to set up a domain with SSL for the API.
     return 'http://3.148.177.49:3005';
 };
 

@@ -29,16 +29,6 @@ const handleResponse = async (response: Response) => {
     return data;
 };
 
-export const api = {
-  async checkHealth(): Promise<boolean> {
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
-        const res = await fetch(`${BASE_URL}/health`, { 
-            method: 'GET',
-            signal: controller.signal,
-            mode: 'cors'
-        });
         clearTimeout(timeoutId);
         const data = await res.json();
         return data.database === true;

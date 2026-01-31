@@ -1,7 +1,8 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { ChatThread, Message, User } from '../types';
 import { cn } from '../lib/utils';
-import { api } from '../services/api';
+import { api, WS_URL } from '../services/api';
 
 interface InboxProps {
   chats: ChatThread[];
@@ -22,17 +23,25 @@ const Inbox: React.FC<InboxProps> = ({ chats, setChats, activeChatId, setActiveC
 
   // Initialize WebSocket for real-time chat
   useEffect(() => {
-    socketRef.current = new WebSocket('ws://127.0.0.1:3005');
-    
-    socketRef.current.onmessage = async (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'CHAT_UPDATE') {
-          const updatedChats = await api.getChats();
-          setChats(updatedChats);
-        }
-      } catch (e) {}
-    };
+    try {
+        socketRef.current = new WebSocket(WS_URL);
+        
+        socketRef.current.onmessage = async (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'CHAT_UPDATE') {
+              const updatedChats = await api.getChats();
+              setChats(updatedChats);
+            }
+          } catch (e) {}
+        };
+
+        socketRef.current.onerror = () => {
+            console.error("Chat WebSocket connection failed. Verify port 3001 is open.");
+        };
+    } catch (err) {
+        console.error("WS_INIT_ERROR:", err);
+    }
 
     return () => {
       socketRef.current?.close();
@@ -102,7 +111,6 @@ const Inbox: React.FC<InboxProps> = ({ chats, setChats, activeChatId, setActiveC
         timestamp: 'Just now',
         messages: []
       };
-      // Persist the initial bridge chat
       await api.saveChat(newChat);
       setChats(prev => [newChat, ...prev]);
       setActiveChatId(newId);

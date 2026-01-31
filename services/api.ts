@@ -2,143 +2,241 @@
 import { User, Product, Order, Ad, Subscription, ChatThread, VerificationStatus } from '../types';
 
 /**
- * API ENDPOINT CONFIGURATION
- * EC2 IP: 3.148.177.49
+ * HOLEVIEW MARKET - API SERVICE LAYER
+ * Primary Endpoint: EC2 Node (3.148.177.49)
  * Port: 3001
  */
-const DEFAULT_API = 'http://3.148.177.49:3001';
-const ENV_API = (process.env as any).VITE_API_URL;
 
-export const BASE_URL = `${ENV_API || DEFAULT_API}/api`;
-export const WS_URL = (ENV_API || DEFAULT_API).replace('http', 'ws');
+const DEFAULT_IP = '3.148.177.49';
+const DEFAULT_PORT = '3001';
+const DEFAULT_API = `http://${DEFAULT_IP}:${DEFAULT_PORT}`;
 
-const isHttpMismatch = () => {
-  return window.location.protocol === 'http:' && BASE_URL.startsWith('http:');
+// Use environment variable if provided by Vite, otherwise fallback to hardcoded EC2
+const ENV_API = (process.env as any)?.VITE_API_URL;
+const API_ORIGIN = ENV_API || DEFAULT_API;
+
+export const BASE_URL = `${API_ORIGIN}/api`;
+export const WS_URL = API_ORIGIN.replace(/^http/, 'ws');
+
+/**
+ * Diagnostic helper to detect Mixed Content security blocks
+ */
+const checkSecurityMismatch = () => {
+  if (window.location.protocol === 'https:' && API_ORIGIN.startsWith('http:')) {
+    return true;
+  }
+  return false;
 };
 
-const handleResponse = async (response: Response) => {
-    const contentType = response.headers.get('content-type');
-    let data;
+/**
+ * Centralized Fetch Wrapper
+ */
+async function callApi(endpoint: string, options: RequestInit = {}) {
+  const url = `${BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  
+  const defaultHeaders = {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+  };
+
+  const config = {
+    ...options,
+    headers: {
+      ...defaultHeaders,
+      ...options.headers,
+    },
+    mode: 'cors' as RequestMode,
+  };
+
+  try {
+    const response = await fetch(url, config);
     
-    if (contentType && contentType.includes('application/json')) {
-        data = await response.json().catch(() => ({}));
-    } else {
-        const text = await response.text().catch(() => 'Unknown server error');
-        data = { error: text };
+    // Handle HTTP error codes (4xx, 5xx)
+    if (!response.ok) {
+      let errorMessage = `Server Error: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+      } catch {
+        const text = await response.text();
+        if (text) errorMessage = text;
+      }
+      throw new Error(errorMessage);
     }
 
-    if (!response.ok) {
-        if (response.status === 405) {
-            throw new Error(`METHOD_NOT_ALLOWED: The server responded but doesn't allow POST. This can happen with Nginx misconfiguration.`);
-        }
-        throw new Error(data.error || `Server returned ${response.status}`);
+    return await response.json();
+  } catch (error: any) {
+    // Check for "Failed to fetch" which usually means the request never left the browser
+    if (error.name === 'TypeError' || error.message === 'Failed to fetch') {
+      if (checkSecurityMismatch()) {
+        throw new Error("SECURITY_BLOCK: Your browser blocked the connection because this site uses HTTPS but the API uses HTTP. FIX: Click the 'Lock' icon in your URL bar -> Site Settings -> Allow 'Insecure Content'.");
+      }
+      throw new Error("INFRASTRUCTURE_OFFLINE: Could not reach the API server. Ensure the Node.js backend is running on EC2 and Port 3001 is open in AWS Security Groups.");
     }
-    return data;
-};
+    throw error;
+  }
+}
 
 export const api = {
+  /**
+   * Connectivity & System
+   */
   async checkHealth(): Promise<{online: boolean, database: boolean, error?: string}> {
     try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000); 
-        const res = await fetch(`${BASE_URL}/health`, { 
-            method: 'GET',
-            signal: controller.signal,
-            mode: 'cors',
-            cache: 'no-store'
-        });
-        clearTimeout(timeoutId);
-        const data = await res.json();
-        return { online: true, database: data.database === true };
-    } catch (e: any) { 
-        let errorMsg = "Unreachable";
-        if (isHttpMismatch()) {
-            errorMsg = "HTTPS_BLOCK";
-        } else if (e.name === 'AbortError') {
-            errorMsg = "TIMEOUT";
-        } else {
-            console.error("Network Fetch Error:", e);
-        }
-        return { online: false, database: false, error: errorMsg }; 
+      // Small timeout for health check
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), 3000);
+      
+      const res = await fetch(`${BASE_URL}/health`, { 
+        signal: controller.signal,
+        mode: 'cors'
+      });
+      clearTimeout(id);
+      
+      const data = await res.json();
+      return { online: true, database: data.database === true };
+    } catch (e: any) {
+      const isBlock = checkSecurityMismatch();
+      return { 
+        online: false, 
+        database: false, 
+        error: isBlock ? "HTTPS_BLOCK" : (e.name === 'AbortError' ? "TIMEOUT" : "REFUSED") 
+      };
     }
   },
 
+  async getSettings() {
+    return callApi('/settings');
+  },
+
+  async saveSettings(settings: { commission_rate: number, other_fee_rate: number }) {
+    return callApi('/settings', {
+      method: 'POST',
+      body: JSON.stringify(settings)
+    });
+  },
+
+  /**
+   * User Management
+   */
   async login(phone: string, key: string): Promise<User | null> {
-    try {
-        const res = await fetch(`${BASE_URL}/login`, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify({ phone, password: key })
-        });
-        return await handleResponse(res);
-    } catch (e: any) {
-        if (e.message === 'Failed to fetch' || e.name === 'TypeError') {
-            if (isHttpMismatch()) {
-                throw new Error("SECURITY_BLOCK: Browser blocked the request. You are on HTTPS but server is HTTP. Allow 'Insecure Content' in site settings or setup SSL on EC2.");
-            } else {
-                throw new Error("NETWORK_FAILURE: Connection Refused. Ensure AWS Port 3001 is open and Node server is running on port 3001.");
-            }
-        }
-        throw e;
-    }
+    return callApi('/login', {
+      method: 'POST',
+      body: JSON.stringify({ phone, password: key })
+    });
   },
 
   async register(user: User): Promise<{success: boolean, error?: string}> {
-    try {
-        const res = await fetch(`${BASE_URL}/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(user)
-        });
-        const data = await handleResponse(res);
-        return { success: true, ...data };
-    } catch (e: any) {
-        return { success: false, error: e.message };
-    }
+    return callApi('/register', {
+      method: 'POST',
+      body: JSON.stringify(user)
+    });
   },
 
-  async getProducts(): Promise<Product[]> { 
-      try { 
-          const res = await fetch(`${BASE_URL}/products`);
-          return await res.json(); 
-      } catch(e) { return []; }
+  async getUsers(): Promise<User[]> {
+    return callApi('/users');
   },
 
-  async addProduct(product: Product) { 
-      const res = await fetch(`${BASE_URL}/products`, { 
-          method: 'POST', 
-          headers: { 'Content-Type': 'application/json' }, 
-          body: JSON.stringify(product) 
-      }); 
-      return await handleResponse(res);
+  async updateProfile(user: Partial<User>) {
+    return callApi('/users/update', {
+      method: 'POST',
+      body: JSON.stringify(user)
+    });
+  },
+
+  async approveVerification(user_id: string, status: VerificationStatus) {
+    return callApi('/users/verify', {
+      method: 'POST',
+      body: JSON.stringify({ user_id, verification_status: status })
+    });
+  },
+
+  async changePassword(user_id: string, new_pwd: string) {
+    return callApi('/users/password', {
+      method: 'POST',
+      body: JSON.stringify({ user_id, password: new_pwd })
+    });
+  },
+
+  /**
+   * Marketplace & Products
+   */
+  async getProducts(): Promise<Product[]> {
+    return callApi('/products');
+  },
+
+  async addProduct(product: Product) {
+    return callApi('/products', {
+      method: 'POST',
+      body: JSON.stringify(product)
+    });
   },
 
   async uploadToS3(base64: string, name: string): Promise<string> {
-      const res = await fetch(`${BASE_URL}/upload`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: base64, name })
-      });
-      const data = await handleResponse(res);
-      return data.url;
+    const data = await callApi('/upload', {
+      method: 'POST',
+      body: JSON.stringify({ image: base64, name })
+    });
+    return data.url;
   },
 
-  async getOrders(): Promise<Order[]> { try { const res = await fetch(`${BASE_URL}/orders`); return await res.json(); } catch(e) { return []; } },
-  async getSettings(): Promise<{commission_rate: number, other_fee_rate: number}> { try { const res = await fetch(`${BASE_URL}/settings`); return await handleResponse(res); } catch (e) { return { commission_rate: 5, other_fee_rate: 15 }; } },
-  async saveSettings(settings: {commission_rate: number, other_fee_rate: number}) { const res = await fetch(`${BASE_URL}/settings`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings) }); return await handleResponse(res); },
-  async getUsers(): Promise<User[]> { try { const res = await fetch(`${BASE_URL}/users`); return await res.json(); } catch(e) { return []; } },
-  async updateProfile(user: Partial<User>) { const res = await fetch(`${BASE_URL}/users/update`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(user) }); return await handleResponse(res); },
-  async approveVerification(user_id: string, status: VerificationStatus) { const res = await fetch(`${BASE_URL}/users/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id, verification_status: status }) }); return await handleResponse(res); },
-  async changePassword(user_id: string, new_pwd: string) { const res = await fetch(`${BASE_URL}/users/password`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id, password: new_pwd }) }); return await handleResponse(res); },
-  async getAds(): Promise<Ad[]> { try { const res = await fetch(`${BASE_URL}/ads`); return await res.json(); } catch(e) { return []; } },
-  async addAd(ad: Ad) { const res = await fetch(`${BASE_URL}/ads`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ad) }); return await handleResponse(res); },
-  async getSubscriptions(): Promise<Subscription[]> { try { const res = await fetch(`${BASE_URL}/subscriptions`); return await res.json(); } catch(e) { return []; } },
-  async addSubscription(sub: Subscription) { const res = await fetch(`${BASE_URL}/subscriptions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sub) }); return await handleResponse(res); },
-  async updateSubscriptionStatus(id: string, status: 'completed' | 'declined') { const res = await fetch(`${BASE_URL}/subscriptions/update`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status }) }); return await handleResponse(res); },
-  async getChats(): Promise<ChatThread[]> { try { const res = await fetch(`${BASE_URL}/chats`); return await res.json(); } catch(e) { return []; } },
-  async checkout(orders: Order[]) { const res = await fetch(`${BASE_URL}/checkout`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(orders) }); return await handleResponse(res); },
-  async saveChat(chat: ChatThread) { const res = await fetch(`${BASE_URL}/chats`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(chat) }); return await handleResponse(res); }
+  /**
+   * Orders & Transactions
+   */
+  async getOrders(): Promise<Order[]> {
+    return callApi('/orders');
+  },
+
+  async checkout(orders: Order[]) {
+    return callApi('/checkout', {
+      method: 'POST',
+      body: JSON.stringify(orders)
+    });
+  },
+
+  /**
+   * Marketing & Subscriptions
+   */
+  async getAds(): Promise<Ad[]> {
+    return callApi('/ads');
+  },
+
+  async addAd(ad: Ad) {
+    return callApi('/ads', {
+      method: 'POST',
+      body: JSON.stringify(ad)
+    });
+  },
+
+  async getSubscriptions(): Promise<Subscription[]> {
+    return callApi('/subscriptions');
+  },
+
+  async addSubscription(sub: Subscription) {
+    return callApi('/subscriptions', {
+      method: 'POST',
+      body: JSON.stringify(sub)
+    });
+  },
+
+  async updateSubscriptionStatus(id: string, status: 'completed' | 'declined') {
+    return callApi('/subscriptions/update', {
+      method: 'POST',
+      body: JSON.stringify({ id, status })
+    });
+  },
+
+  /**
+   * Communication
+   */
+  async getChats(): Promise<ChatThread[]> {
+    return callApi('/chats');
+  },
+
+  async saveChat(chat: ChatThread) {
+    return callApi('/chats', {
+      method: 'POST',
+      body: JSON.stringify(chat)
+    });
+  }
 };

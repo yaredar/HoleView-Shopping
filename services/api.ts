@@ -9,7 +9,7 @@ import { User, Product, Order, Ad, Subscription, ChatThread, VerificationStatus 
 
 const DEFAULT_IP = '3.148.177.49';
 const DEFAULT_PORT = '3001';
-const API_BASE = 'http://3.148.177.49';
+const API_BASE = `http://${DEFAULT_IP}:${DEFAULT_PORT}`;
 
 // Resolution logic: Vite environment > Default Hardcoded EC2
 const ENV_API = (process.env as any)?.VITE_API_URL;
@@ -22,7 +22,7 @@ export const WS_URL = API_ORIGIN.replace(/^http/, 'ws');
  * Detects if the browser is blocking requests due to protocol mismatch
  * (Site is HTTPS but API is HTTP)
  */
-const isSecurityBlocked = () => {
+export const isSecurityBlocked = () => {
   return window.location.protocol === 'https:' && API_ORIGIN.startsWith('http:');
 };
 
@@ -39,7 +39,12 @@ async function request(endpoint: string, options: RequestInit = {}) {
   };
 
   try {
-    const response = await fetch(url, { ...options, headers, mode: 'cors' });
+    const response = await fetch(url, { 
+      ...options, 
+      headers, 
+      mode: 'cors',
+      cache: 'no-cache'
+    });
     
     if (!response.ok) {
       let msg = `Platform Error: ${response.status}`;
@@ -55,12 +60,13 @@ async function request(endpoint: string, options: RequestInit = {}) {
 
     return await response.json();
   } catch (err: any) {
+    console.warn(`[API DEBUG] Failed request to ${url}:`, err);
     // TypeError is usually thrown when the browser blocks the request before it leaves
     if (err.name === 'TypeError' || err.message === 'Failed to fetch') {
       if (isSecurityBlocked()) {
-        throw new Error("SECURITY_BLOCK: Browsers block HTTP APIs on HTTPS sites. FIX: Click 'Lock' icon -> Site Settings -> Allow 'Insecure Content'.");
+        throw new Error("SECURITY_BLOCK");
       }
-      throw new Error("NETWORK_REFUSED: Backend is unreachable. Check if EC2 Port 3001 is open and server.js is running.");
+      throw new Error("NETWORK_REFUSED");
     }
     throw err;
   }
@@ -73,7 +79,7 @@ export const api = {
   async checkHealth(): Promise<{online: boolean, database: boolean, error?: string}> {
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 4000); // 4s timeout
+      const timer = setTimeout(() => controller.abort(), 3000); 
       
       const res = await fetch(`${BASE_URL}/health`, { 
         signal: controller.signal,
@@ -82,9 +88,12 @@ export const api = {
       });
       clearTimeout(timer);
       
+      if (!res.ok) throw new Error("HTTP_ERROR_" + res.status);
+      
       const data = await res.json();
       return { online: true, database: data.database === true };
     } catch (e: any) {
+      console.log("[HEALTH CHECK] Error details:", e);
       if (isSecurityBlocked()) return { online: false, database: false, error: "HTTPS_BLOCK" };
       if (e.name === 'AbortError') return { online: false, database: false, error: "TIMEOUT" };
       return { online: false, database: false, error: "REFUSED" };

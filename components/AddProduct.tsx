@@ -99,11 +99,11 @@ const AddProduct: React.FC<AddProductProps> = ({ onAdd, isSubscribed, goToSubscr
             setImages([]);
             setTimeout(() => setSuccess(false), 3000);
         } else {
-            setError("Failed to sync with market node.");
+            setError("Failed to sync with marketplace.");
         }
     } catch (err: any) {
         console.error(err);
-        setError("AWS Infrastructure error: " + (err.message || "Failed to upload stream."));
+        setError("Infrastructure error: " + (err.message || "Failed to upload stream."));
     } finally {
         setIsSubmitting(false);
     }
@@ -149,54 +149,54 @@ const AddProduct: React.FC<AddProductProps> = ({ onAdd, isSubscribed, goToSubscr
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-4">Product Title</label>
-            <input required type="text" className="w-full p-4 bg-gray-50 border-none rounded-2xl outline-none font-bold text-sm" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
+            <input required type="text" className="w-full p-4 bg-slate-50 border-none rounded-2xl outline-none font-bold text-sm" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
           </div>
           <div className="space-y-1">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-4">Contact Phone</label>
-            <input required type="tel" className="w-full p-4 bg-gray-50 border-none rounded-2xl outline-none font-bold text-sm" placeholder="09xxxxxxxx" value={form.contact_phone} onChange={e => setForm({...form, contact_phone: e.target.value})} />
+            <input required type="tel" className="w-full p-4 bg-slate-50 border-none rounded-2xl outline-none font-bold text-sm" placeholder="09xxxxxxxx" value={form.contact_phone} onChange={e => setForm({...form, contact_phone: e.target.value})} />
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-1">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-4">Condition</label>
-            <select className="w-full p-4 bg-gray-50 border-none rounded-2xl outline-none font-bold text-sm cursor-pointer" value={form.condition} onChange={e => setForm({...form, condition: e.target.value as any})}>
+            <select className="w-full p-4 bg-slate-50 border-none rounded-2xl outline-none font-bold text-sm cursor-pointer" value={form.condition} onChange={e => setForm({...form, condition: e.target.value as any})}>
               <option value="Brand New">Brand New</option>
               <option value="Used">Used</option>
             </select>
           </div>
           <div className="space-y-1">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-4">Price ({CURRENCY})</label>
-            <input required type="number" className="w-full p-4 bg-gray-50 border-none rounded-2xl outline-none font-bold text-sm" value={form.price} onChange={e => setForm({...form, price: e.target.value})} />
+            <input required type="number" className="w-full p-4 bg-slate-50 border-none rounded-2xl outline-none font-bold text-sm" value={form.price} onChange={e => setForm({...form, price: e.target.value})} />
           </div>
           <div className="space-y-1">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-4">Stock</label>
-            <input required type="number" className="w-full p-4 bg-gray-50 border-none rounded-2xl outline-none font-bold text-sm" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} />
+            <input required type="number" className="w-full p-4 bg-slate-50 border-none rounded-2xl outline-none font-bold text-sm" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} />
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-4">Segment</label>
-            <select className="w-full p-4 bg-gray-50 border-none rounded-2xl outline-none font-bold text-sm cursor-pointer" value={form.category} onChange={e => setForm({...form, category: e.target.value})}>
+            <select className="w-full p-4 bg-slate-50 border-none rounded-2xl outline-none font-bold text-sm cursor-pointer" value={form.category} onChange={e => setForm({...form, category: e.target.value})}>
               {INITIAL_PRODUCT_TYPES.map(cat => <option key={cat}>{cat}</option>)}
             </select>
           </div>
           <div className="space-y-1">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-4">Shipping Fee ({CURRENCY})</label>
-            <input required type="number" className="w-full p-4 bg-gray-50 border-none rounded-2xl outline-none font-bold text-sm" value={form.shipping_fee} onChange={e => setForm({...form, shipping_fee: e.target.value})} />
+            <input required type="number" className="w-full p-4 bg-slate-50 border-none rounded-2xl outline-none font-bold text-sm" value={form.shipping_fee} onChange={e => setForm({...form, shipping_fee: e.target.value})} />
           </div>
         </div>
 
         <div className="space-y-1">
           <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-4">Description</label>
-          <textarea required rows={3} className="w-full p-4 bg-gray-50 border-none rounded-2xl outline-none font-medium text-xs" value={form.description} onChange={e => setForm({...form, description: e.target.value})} placeholder="Item details..." />
+          <textarea required rows={3} className="w-full p-4 bg-slate-50 border-none rounded-2xl outline-none font-medium text-xs" value={form.description} onChange={e => setForm({...form, description: e.target.value})} placeholder="Item details..." />
         </div>
 
         {error && <p className="text-red-500 text-[10px] font-black animate-pulse uppercase text-center tracking-widest">{error}</p>}
         {success && <p className="text-green-500 text-[10px] font-black uppercase text-center tracking-widest">Listing broadcasted!</p>}
         <button type="submit" disabled={isSubmitting} className="w-full py-4 bg-primary text-white rounded-2xl font-black shadow-xl uppercase tracking-widest text-xs transition-all active:scale-95 disabled:opacity-50">
-          {isSubmitting ? 'AWS Pipeline Synchronizing...' : 'Publish Feed'}
+          {isSubmitting ? 'Synchronizing Infrastructure...' : 'Publish Feed'}
         </button>
       </form>
     </div>

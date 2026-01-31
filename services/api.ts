@@ -9,7 +9,7 @@ import { User, Product, Order, Ad, Subscription, ChatThread, VerificationStatus 
 
 const DEFAULT_IP = '3.148.177.49';
 const DEFAULT_PORT = '3001';
-const API_BASE = 'https://comparing-streams-launched-epic.trycloudflare.com ';
+const API_BASE = 'http://3.148.177.49';
 
 // Resolution logic: Vite environment > Default Hardcoded EC2
 const ENV_API = (process.env as any)?.VITE_API_URL;

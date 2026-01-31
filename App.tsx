@@ -53,9 +53,13 @@ const App: React.FC = () => {
                 if (health.database) setServerStatus('online');
                 else setServerStatus('no_db');
             } else {
-                if (health.error === 'HTTPS_BLOCK') setServerStatus('blocked');
-                else if (health.error === 'TIMEOUT') setServerStatus('timeout');
-                else setServerStatus('offline');
+                if (health.error === 'HTTPS_BLOCK') {
+                    setServerStatus('blocked');
+                } else if (health.error === 'TIMEOUT') {
+                    setServerStatus('timeout');
+                } else {
+                    setServerStatus('offline');
+                }
             }
         }
       } catch {
@@ -63,7 +67,7 @@ const App: React.FC = () => {
       }
     };
     check();
-    const interval = setInterval(check, 10000);
+    const interval = setInterval(check, 8000);
     return () => { isMounted = false; clearInterval(interval); };
   }, []);
 
@@ -83,7 +87,6 @@ const App: React.FC = () => {
       case 'Payments': return <PaymentsTable orders={store.orders} currentUser={store.currentUser} searchTerm={globalSearchTerm} />;
       case 'Products': return <ProductsPage products={store.products} searchTerm={globalSearchTerm} />;
       case 'Ads': return <AdsPage ads={store.ads} setAds={store.setAds} />;
-      // Fix: Accessed setSubscriptions through the store object to resolve the reference error.
       case 'Subscription': return <SubscriptionPage userRole={store.currentUser!.role} currentUserId={store.currentUser!.user_id} userName={`${store.currentUser!.first_name} ${store.currentUser!.last_name}`} userPhone={store.currentUser!.phone} users={store.users} subscriptions={store.subscriptions} setSubscriptions={store.setSubscriptions} subscriptionTiers={store.subscriptionTiers} setSubscriptionTiers={store.setSubscriptionTiers} onRefresh={() => store.syncWithDb(true)} searchTerm={globalSearchTerm} />;
       case 'Commission & Tax': return <CommissionTaxPage commissionRate={store.commissionRate} setCommissionRate={store.setCommissionRate} otherFeeRate={store.otherFeeRate} setOtherFeeRate={store.setOtherFeeRate} />;
       case 'Report': return <ReportPage orders={store.orders} users={store.users} />;
@@ -124,8 +127,8 @@ const App: React.FC = () => {
       }
     } catch (err: any) {
       if (err.message.includes('SECURITY_BLOCK')) {
-          alert("🚨 BROWSER BLOCK DETECTED:\n\nYour browser blocked the connection to the server because it is not using HTTPS. \n\nFIX: Click the Lock icon in the URL bar -> Site Settings -> Allow 'Insecure Content' -> Reload Page.");
-      } else if (err.message.includes('NETWORK_FAILURE')) {
+          setShowTroubleshoot(true);
+      } else if (err.message.includes('NETWORK_FAILURE') || err.message.includes('REFUSED')) {
           setShowTroubleshoot(true);
       } else {
           alert(`SYSTEM ERROR: ${err.message || 'Check connection'}`);
@@ -153,12 +156,8 @@ const App: React.FC = () => {
         setIsSigningUp(false);
       } else alert(`ERROR: ${result.error}`);
     } catch (err: any) { 
-        alert(`INFRASTRUCTURE ERROR: ${err.message}`); 
+        setShowTroubleshoot(true);
     } finally { setIsProcessing(false); }
-  };
-
-  const handleForgotPassword = () => {
-    alert("PASSWORD RECOVERY: Please contact the system administrator or visit the nearest service hub to reset your password.");
   };
 
   if (!store.isAuthenticated) {
@@ -181,7 +180,7 @@ const App: React.FC = () => {
                   {serverStatus === 'online' ? 'Service Active' : 
                    serverStatus === 'blocked' ? 'Security Blocked' :
                    serverStatus === 'timeout' ? 'Link Latency' :
-                   serverStatus === 'no_db' ? 'DB Error' : 
+                   serverStatus === 'no_db' ? 'DB Offline' : 
                    serverStatus === 'checking' ? 'Establishing Node...' : 'Offline'}
                 </span>
               </div>
@@ -214,7 +213,7 @@ const App: React.FC = () => {
             
             {!isSigningUp && (
               <div className="text-right">
-                <button type="button" onClick={handleForgotPassword} className="text-[9px] font-black text-slate-400 uppercase tracking-widest hover:text-[#FF5722]">Forgot Password?</button>
+                <button type="button" onClick={() => alert("Contact System Admin for key recovery.")} className="text-[9px] font-black text-slate-400 uppercase tracking-widest hover:text-[#FF5722]">Forgot Key?</button>
               </div>
             )}
 
@@ -226,7 +225,7 @@ const App: React.FC = () => {
               )}
             >
               {isProcessing && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
-              <span>{isSigningUp ? "Sign Up" : "Sign In"}</span>
+              <span>{isSigningUp ? "Create Account" : "Link Account"}</span>
             </button>
           </form>
 
@@ -235,7 +234,7 @@ const App: React.FC = () => {
                 onClick={() => setShowTroubleshoot(true)}
                 className="w-full mt-6 p-4 bg-red-50 hover:bg-red-100 rounded-2xl border border-red-100 text-[10px] text-red-600 font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
             >
-              <span>⚠️ Backend Connection Diagnostic</span>
+              <span>⚠️ Infrastructure Diagnostic</span>
             </button>
           )}
         </div>
@@ -250,40 +249,39 @@ const App: React.FC = () => {
 
                     <div className="space-y-4 text-xs font-bold text-slate-600 uppercase tracking-widest leading-relaxed">
                         <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                            <p className="text-slate-400 text-[9px] mb-2">Test 1: Direct Verification</p>
+                            <p className="text-slate-400 text-[9px] mb-2">Manual Link Verification</p>
                             <div className="flex flex-col gap-2">
-                                <a 
-                                    href={`${BASE_URL.replace('/api', '')}`} 
-                                    target="_blank" 
-                                    rel="noreferrer"
-                                    className="inline-flex items-center gap-2 text-primary hover:underline"
-                                >
+                                <a href={`${BASE_URL.replace('/api', '')}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-primary hover:underline">
                                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                                    Open API Verification Link
+                                    Verify API Reachability
                                 </a>
-                                <p className="text-[8px] text-slate-400 normal-case italic">If the page above doesn't say "HoleView API is Online", check your AWS Port 3001.</p>
+                                <p className="text-[8px] text-slate-400 normal-case italic">If the page above doesn't say "HoleView API is Online", your AWS Security Group Port 3001 is closed.</p>
                             </div>
                         </div>
 
-                        <div className="p-4 bg-red-50 rounded-2xl border border-red-100">
-                            <p className="text-red-600 text-[9px] mb-2">Browser Security Mismatch</p>
-                            <p className="text-red-500 text-[9px] normal-case">If you are accessing this site via HTTPS, the browser blocks HTTP connections. You MUST allow "Insecure Content" in Site Settings (click the lock icon in the URL bar).</p>
-                        </div>
+                        {serverStatus === 'blocked' && (
+                            <div className="p-5 bg-red-50 rounded-2xl border-2 border-red-200">
+                                <p className="text-red-600 text-[10px] font-black uppercase mb-3">🚨 BROWSER SECURITY BLOCK</p>
+                                <p className="text-red-500 text-[10px] normal-case leading-relaxed font-bold">
+                                    Your browser is blocking the API because this site is HTTPS and the API is HTTP.<br/><br/>
+                                    <strong>FIX:</strong><br/>
+                                    1. Click the 🔒 Lock icon in your address bar.<br/>
+                                    2. Click <strong>Site Settings</strong>.<br/>
+                                    3. Find <strong>Insecure content</strong>.<br/>
+                                    4. Set it to <strong>Allow</strong>.<br/>
+                                    5. Refresh this page.
+                                </p>
+                            </div>
+                        )}
 
                         <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                            <p className="text-slate-400 text-[9px] mb-2">Test 2: Terminal check</p>
-                            <p>Verify node process on EC2:</p>
-                            <div className="bg-slate-900 text-emerald-400 p-3 rounded-xl font-mono text-[9px] lowercase tracking-normal my-2">
-                                sudo lsof -i :3001
+                            <p className="text-slate-400 text-[9px] mb-2">Server Diagnostic (Run on EC2)</p>
+                            <div className="bg-slate-900 text-emerald-400 p-3 rounded-xl font-mono text-[9px] lowercase tracking-normal my-2 select-all">
+                                sudo fuser -k 3001/tcp && node backend/server.js
                             </div>
                         </div>
                     </div>
-                    <button 
-                        onClick={() => window.location.reload()}
-                        className="btn-primary w-full py-4 text-[11px]"
-                    >
-                        Sync Node Local Cache
-                    </button>
+                    <button onClick={() => window.location.reload()} className="btn-primary w-full py-4 text-[11px]">Sync Local Cache & Restart</button>
                 </div>
             </div>
         )}

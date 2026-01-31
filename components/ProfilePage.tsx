@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { User, UserRole } from '../types';
 import { api } from '../services/api';
@@ -127,7 +128,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onRefresh }) => 
                </h3>
                <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] mt-2">{currentUser?.phone}</p>
                <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-600 px-4 py-1.5 rounded-full mt-3 font-black text-[9px] uppercase tracking-widest border border-blue-100">
-                 {currentUser?.role} Node
+                 {currentUser?.role} Member
                </div>
             </div>
          </div>
@@ -156,7 +157,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onRefresh }) => 
            </button>
            
            <p className="text-[9px] font-medium text-slate-400 leading-relaxed uppercase text-center px-4">
-             {vStatus === 'verified' ? "Node fully authorized for premium market streams." : 
+             {vStatus === 'verified' ? "Account fully authorized for premium market streams." : 
               vStatus === 'pending' ? "Manual administrative review in progress." : 
               "Verification required for seller listing capabilities."}
            </p>
@@ -165,7 +166,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onRefresh }) => 
         {/* Security Card */}
         <div className="bg-white p-8 rounded-[40px] shadow-soft border border-slate-100 flex flex-col space-y-6">
            <div>
-              <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-1">Node Security</h4>
+              <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-1">Account Security</h4>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Access key management</p>
            </div>
            
@@ -177,7 +178,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onRefresh }) => 
            </button>
            
            <p className="text-[9px] font-medium text-slate-400 leading-relaxed uppercase text-center px-4">
-             Update your encryption key to secure your node terminal.
+             Update your encryption key to secure your market account.
            </p>
         </div>
       </div>
@@ -295,7 +296,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onRefresh }) => 
              <div className="text-left space-y-8">
                 <div>
                    <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Secure Key Update</h3>
-                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Enhance your node terminal security</p>
+                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Enhance your account security</p>
                 </div>
 
                 <form onSubmit={handlePasswordChange} className="space-y-5">
@@ -315,7 +316,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ currentUser, onRefresh }) => 
                    <button 
                      type="submit" 
                      disabled={isUpdating}
-                     className="w-full py-5 bg-slate-900 text-white rounded-[30px] font-black uppercase tracking-[0.2em] text-[12px] shadow-2xl transition-all hover:bg-black active:scale-95 disabled:opacity-50 mt-4"
+                     className="w-full py-5 bg-slate-900 text-white rounded-3xl font-black uppercase tracking-[0.2em] text-[12px] shadow-2xl transition-all hover:bg-black active:scale-95 disabled:opacity-50 mt-4"
                    >
                      {isUpdating ? 'Synchronizing Cluster...' : 'Push Security Update'}
                    </button>

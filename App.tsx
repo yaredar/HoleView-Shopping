@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { UserRole, Product, User } from './types';
 import Layout from './components/Layout';
@@ -21,7 +20,7 @@ import Dashboard from './components/Dashboard';
 import ProductsPage from './components/ProductsPage';
 import ProfilePage from './components/ProfilePage';
 import { useHoleViewStore } from './hooks/useHoleViewStore';
-import { api } from './services/api';
+import { api, BASE_URL } from './services/api';
 import { cn } from './lib/utils';
 
 const App: React.FC = () => {
@@ -41,20 +40,22 @@ const App: React.FC = () => {
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.BUYER);
 
   const [isProcessing, setIsProcessing] = useState(false);
-  const [serverStatus, setServerStatus] = useState<'online' | 'no_db' | 'offline' | 'checking' | 'blocked'>('checking');
+  const [serverStatus, setServerStatus] = useState<'online' | 'no_db' | 'offline' | 'checking' | 'blocked' | 'timeout'>('checking');
+  const [showTroubleshoot, setShowTroubleshoot] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
     const check = async () => {
       try {
-        const isHealthy = await api.checkHealth();
+        const health = await api.checkHealth();
         if (isMounted) {
-            if (isHealthy) setServerStatus('online');
-            else {
-                // If it's not healthy but reachable, it's a DB issue
-                // If it's unreachable, it might be blocked
-                if (window.location.protocol === 'https:') setServerStatus('blocked');
+            if (health.online) {
+                if (health.database) setServerStatus('online');
                 else setServerStatus('no_db');
+            } else {
+                if (health.error === 'HTTPS_BLOCK') setServerStatus('blocked');
+                else if (health.error === 'TIMEOUT') setServerStatus('timeout');
+                else setServerStatus('offline');
             }
         }
       } catch {
@@ -62,7 +63,8 @@ const App: React.FC = () => {
       }
     };
     check();
-    return () => { isMounted = false; };
+    const interval = setInterval(check, 10000);
+    return () => { isMounted = false; clearInterval(interval); };
   }, []);
 
   const hasActiveSub = store.currentUser?.role === UserRole.SUPER_USER || 
@@ -77,11 +79,11 @@ const App: React.FC = () => {
       case 'Marketplace': return <Marketplace products={store.products} ads={store.ads} addToCart={(p) => store.addToCart(p)} onSelectProduct={setSelectedProduct} search={globalSearchTerm} />;
       case 'Sales Hub': return <SellerDashboard orders={store.orders} setOrders={store.setOrders} sellerName={`${store.currentUser?.first_name} ${store.currentUser?.last_name}`} products={store.products} sellerPhone={store.currentUser?.phone || ''} />;
       case 'My Orders': return <MyOrders orders={store.orders} setOrders={store.setOrders} currentUserPhone={store.currentUser?.phone || ''} searchTerm={globalSearchTerm} />;
-      // Use store.setUsers instead of the undefined setUsers
       case 'Users': return <UsersTable users={store.users} setUsers={store.setUsers} canCreate={store.currentUser?.role === UserRole.SUPER_USER} currentUser={store.currentUser} searchTerm={globalSearchTerm} />;
       case 'Payments': return <PaymentsTable orders={store.orders} currentUser={store.currentUser} searchTerm={globalSearchTerm} />;
       case 'Products': return <ProductsPage products={store.products} searchTerm={globalSearchTerm} />;
       case 'Ads': return <AdsPage ads={store.ads} setAds={store.setAds} />;
+      // Fix: Accessed setSubscriptions through the store object to resolve the reference error.
       case 'Subscription': return <SubscriptionPage userRole={store.currentUser!.role} currentUserId={store.currentUser!.user_id} userName={`${store.currentUser!.first_name} ${store.currentUser!.last_name}`} userPhone={store.currentUser!.phone} users={store.users} subscriptions={store.subscriptions} setSubscriptions={store.setSubscriptions} subscriptionTiers={store.subscriptionTiers} setSubscriptionTiers={store.setSubscriptionTiers} onRefresh={() => store.syncWithDb(true)} searchTerm={globalSearchTerm} />;
       case 'Commission & Tax': return <CommissionTaxPage commissionRate={store.commissionRate} setCommissionRate={store.setCommissionRate} otherFeeRate={store.otherFeeRate} setOtherFeeRate={store.setOtherFeeRate} />;
       case 'Report': return <ReportPage orders={store.orders} users={store.users} />;
@@ -123,6 +125,8 @@ const App: React.FC = () => {
     } catch (err: any) {
       if (err.message.includes('SECURITY_BLOCK')) {
           alert("🚨 BROWSER BLOCK DETECTED:\n\nYour browser blocked the connection to the server because it is not using HTTPS. \n\nFIX: Click the Lock icon in the URL bar -> Site Settings -> Allow 'Insecure Content' -> Reload Page.");
+      } else if (err.message.includes('NETWORK_FAILURE')) {
+          setShowTroubleshoot(true);
       } else {
           alert(`SYSTEM ERROR: ${err.message || 'Check connection'}`);
       }
@@ -169,14 +173,16 @@ const App: React.FC = () => {
                 <div className={cn("w-2.5 h-2.5 rounded-full transition-all", 
                   serverStatus === 'online' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 
                   serverStatus === 'blocked' ? 'bg-red-600 animate-pulse shadow-[0_0_8px_red]' :
+                  serverStatus === 'timeout' ? 'bg-amber-400 animate-pulse shadow-[0_0_8px_orange]' :
                   serverStatus === 'no_db' ? 'bg-amber-400 animate-pulse' : 
-                  serverStatus === 'checking' ? 'bg-blue-400 animate-pulse' : 'bg-red-50'
+                  serverStatus === 'checking' ? 'bg-blue-400 animate-pulse' : 'bg-red-500'
                 )}></div>
                 <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
                   {serverStatus === 'online' ? 'Service Active' : 
-                   serverStatus === 'blocked' ? 'Security Blocked (Check Console)' :
-                   serverStatus === 'no_db' ? 'DB Mismatch' : 
-                   serverStatus === 'checking' ? 'Checking Link...' : 'Service Offline'}
+                   serverStatus === 'blocked' ? 'Security Blocked' :
+                   serverStatus === 'timeout' ? 'Link Latency' :
+                   serverStatus === 'no_db' ? 'DB Error' : 
+                   serverStatus === 'checking' ? 'Establishing Node...' : 'Offline'}
                 </span>
               </div>
             </div>
@@ -224,13 +230,63 @@ const App: React.FC = () => {
             </button>
           </form>
 
-          {serverStatus === 'blocked' && (
-            <div className="mt-6 p-4 bg-red-50 rounded-2xl border border-red-100 text-[10px] text-red-600 font-bold leading-relaxed uppercase">
-              Important: Browser is blocking the server connection. 
-              Please click the site settings (lock icon) and Allow "Insecure content".
-            </div>
+          {(serverStatus !== 'online' || showTroubleshoot) && (
+            <button 
+                onClick={() => setShowTroubleshoot(true)}
+                className="w-full mt-6 p-4 bg-red-50 hover:bg-red-100 rounded-2xl border border-red-100 text-[10px] text-red-600 font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
+            >
+              <span>⚠️ Backend Connection Diagnostic</span>
+            </button>
           )}
         </div>
+
+        {showTroubleshoot && (
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
+                <div className="bg-white rounded-[40px] max-w-lg w-full p-10 shadow-2xl animate-scale-up text-left space-y-6">
+                    <div className="flex justify-between items-center">
+                        <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Diagnostic Tool</h3>
+                        <button onClick={() => setShowTroubleshoot(false)} className="text-slate-300 hover:text-red-500"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12"/></svg></button>
+                    </div>
+
+                    <div className="space-y-4 text-xs font-bold text-slate-600 uppercase tracking-widest leading-relaxed">
+                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                            <p className="text-slate-400 text-[9px] mb-2">Test 1: Direct Verification</p>
+                            <div className="flex flex-col gap-2">
+                                <a 
+                                    href={`${BASE_URL.replace('/api', '')}`} 
+                                    target="_blank" 
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-2 text-primary hover:underline"
+                                >
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                    Open API Verification Link
+                                </a>
+                                <p className="text-[8px] text-slate-400 normal-case italic">If the page above doesn't say "HoleView API is Online", check your AWS Port 3001.</p>
+                            </div>
+                        </div>
+
+                        <div className="p-4 bg-red-50 rounded-2xl border border-red-100">
+                            <p className="text-red-600 text-[9px] mb-2">Browser Security Mismatch</p>
+                            <p className="text-red-500 text-[9px] normal-case">If you are accessing this site via HTTPS, the browser blocks HTTP connections. You MUST allow "Insecure Content" in Site Settings (click the lock icon in the URL bar).</p>
+                        </div>
+
+                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                            <p className="text-slate-400 text-[9px] mb-2">Test 2: Terminal check</p>
+                            <p>Verify node process on EC2:</p>
+                            <div className="bg-slate-900 text-emerald-400 p-3 rounded-xl font-mono text-[9px] lowercase tracking-normal my-2">
+                                sudo lsof -i :3001
+                            </div>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={() => window.location.reload()}
+                        className="btn-primary w-full py-4 text-[11px]"
+                    >
+                        Sync Node Local Cache
+                    </button>
+                </div>
+            </div>
+        )}
       </div>
     );
   }

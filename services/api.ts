@@ -6,14 +6,14 @@ import { User, Product, Order, Ad, Subscription, ChatThread, VerificationStatus 
  * EC2 IP: 3.148.177.49
  * Port: 3001
  */
-const BASE_IP = '3.148.177.49';
-const PORT = '3001';
+const DEFAULT_API = 'http://3.148.177.49:3001';
+const ENV_API = (process.env as any).VITE_API_URL;
 
-export const BASE_URL = `http://${BASE_IP}:${PORT}/api`;
-export const WS_URL = `ws://${BASE_IP}:${PORT}`;
+export const BASE_URL = `${ENV_API || DEFAULT_API}/api`;
+export const WS_URL = (ENV_API || DEFAULT_API).replace('http', 'ws');
 
-const isHttpsMismatch = () => {
-  return window.location.protocol === 'https:' && BASE_URL.startsWith('http:');
+const isHttpMismatch = () => {
+  return window.location.protocol === 'http:' && BASE_URL.startsWith('http:');
 };
 
 const handleResponse = async (response: Response) => {
@@ -29,7 +29,7 @@ const handleResponse = async (response: Response) => {
 
     if (!response.ok) {
         if (response.status === 405) {
-            throw new Error(`METHOD_NOT_ALLOWED: The server at ${BASE_URL} responded but doesn't allow POST.`);
+            throw new Error(`METHOD_NOT_ALLOWED: The server responded but doesn't allow POST. This can happen with Nginx misconfiguration.`);
         }
         throw new Error(data.error || `Server returned ${response.status}`);
     }
@@ -40,7 +40,7 @@ export const api = {
   async checkHealth(): Promise<{online: boolean, database: boolean, error?: string}> {
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // Increased timeout for EC2
+        const timeoutId = setTimeout(() => controller.abort(), 4000); 
         const res = await fetch(`${BASE_URL}/health`, { 
             method: 'GET',
             signal: controller.signal,
@@ -52,14 +52,12 @@ export const api = {
         return { online: true, database: data.database === true };
     } catch (e: any) { 
         let errorMsg = "Unreachable";
-        if (isHttpsMismatch()) {
+        if (isHttpMismatch()) {
             errorMsg = "HTTPS_BLOCK";
-            console.error("Mixed Content Block: Browser is blocking HTTP API from HTTPS site.");
         } else if (e.name === 'AbortError') {
             errorMsg = "TIMEOUT";
-            console.error("Network Error: Request timed out. Backend at http://3.148.177.49:3001 is too slow or dropping packets.");
         } else {
-            console.error("Network Error: Backend unreachable at http://3.148.177.49:3001. Possible reasons: Port 3001 closed in AWS SG, or Node process is not running.");
+            console.error("Network Fetch Error:", e);
         }
         return { online: false, database: false, error: errorMsg }; 
     }
@@ -77,9 +75,9 @@ export const api = {
         });
         return await handleResponse(res);
     } catch (e: any) {
-        if (e.message === 'Failed to fetch') {
-            if (isHttpsMismatch()) {
-                throw new Error("SECURITY_BLOCK: Browser blocked the request. Allow 'Insecure Content' in site settings.");
+        if (e.message === 'Failed to fetch' || e.name === 'TypeError') {
+            if (isHttpMismatch()) {
+                throw new Error("SECURITY_BLOCK: Browser blocked the request. You are on HTTPS but server is HTTP. Allow 'Insecure Content' in site settings or setup SSL on EC2.");
             } else {
                 throw new Error("NETWORK_FAILURE: Connection Refused. Ensure AWS Port 3001 is open and Node server is running on port 3001.");
             }

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { CURRENCY } from '../constants';
 import { Order, User, Subscription, Product } from '../types';
@@ -126,7 +127,7 @@ const ReportPage: React.FC<ReportPageProps> = ({ orders: initialOrders, users: i
       <div className="bg-white p-10 rounded-[50px] border border-slate-100 shadow-premium flex flex-col md:flex-row justify-between items-center gap-6 print:hidden">
         <div className="w-full">
           <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Market Intelligence</h3>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Archive Analysis & Node Auditing</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Archive Analysis & User Auditing</p>
         </div>
         <div className="flex gap-4 w-full md:w-auto">
            <button onClick={printReport} className="px-8 py-4 rounded-3xl font-black uppercase text-[10px] tracking-widest bg-slate-50 text-slate-500 border border-slate-100 hover:bg-slate-100 transition-colors">Generate PDF</button>
@@ -172,7 +173,7 @@ const ReportPage: React.FC<ReportPageProps> = ({ orders: initialOrders, users: i
       <div className="flex space-x-3 overflow-x-auto no-scrollbar py-2 print:hidden">
         {([
           { id: 'payments', label: 'Settlements' },
-          { id: 'users', label: 'Nodes' },
+          { id: 'users', label: 'Users' },
           { id: 'market', label: 'Inventory' },
           { id: 'subscriptions', label: 'Licenses' },
           { id: 'finances', label: 'Financials' }
@@ -194,11 +195,11 @@ const ReportPage: React.FC<ReportPageProps> = ({ orders: initialOrders, users: i
           <table className="w-full text-left text-[10px] font-black border-collapse whitespace-nowrap">
             <thead className="bg-slate-50 text-slate-400 uppercase tracking-ultra border-b border-slate-100">
               <tr>
-                <th className="px-6 py-6">Payer Node</th>
+                <th className="px-6 py-6">Payer</th>
                 <th className="px-6 py-6">Identity</th>
                 <th className="px-6 py-6">Settlement Type</th>
                 <th className="px-6 py-6">Timestamp</th>
-                <th className="px-6 py-6">Receiver Node</th>
+                <th className="px-6 py-6">Receiver</th>
                 <th className="px-6 py-6">Stream Status</th>
                 <th className="px-6 py-6">Reference ID</th>
                 <th className="px-6 py-6">Market EX-ID</th>
@@ -234,12 +235,12 @@ const ReportPage: React.FC<ReportPageProps> = ({ orders: initialOrders, users: i
             <thead className="bg-slate-50 text-slate-400 uppercase tracking-ultra border-b border-slate-100">
               <tr>
                 <th className="px-8 py-6">Phone (Identity)</th>
-                <th className="px-8 py-6">Node Label</th>
+                <th className="px-8 py-6">Name</th>
                 <th className="px-8 py-6">Authorization Role</th>
                 <th className="px-8 py-6">Provisioned By</th>
                 <th className="px-8 py-6">Uplink Time</th>
                 <th className="px-8 py-6">Trust Index</th>
-                <th className="px-8 py-6">Node Status</th>
+                <th className="px-8 py-6">Account Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -274,8 +275,8 @@ const ReportPage: React.FC<ReportPageProps> = ({ orders: initialOrders, users: i
                    <p className="text-4xl font-black text-slate-900 mt-4 tracking-tighter">{products.length} Active</p>
                 </div>
                 <div className="bg-slate-50 p-10 rounded-[40px] border border-slate-100 shadow-soft">
-                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-ultra">Operational Seller Nodes</p>
-                   <p className="text-4xl font-black text-slate-900 mt-4 tracking-tighter">{users.filter(u => u.role === 'SELLER').length} Nodes</p>
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-ultra">Operational Seller Accounts</p>
+                   <p className="text-4xl font-black text-slate-900 mt-4 tracking-tighter">{users.filter(u => u.role === 'SELLER').length} Sellers</p>
                 </div>
              </div>
           </div>
@@ -308,7 +309,7 @@ const ReportPage: React.FC<ReportPageProps> = ({ orders: initialOrders, users: i
            <table className="w-full text-left text-[10px] font-black border-collapse whitespace-nowrap">
             <thead className="bg-slate-50 text-slate-400 uppercase tracking-ultra border-b border-slate-100">
               <tr>
-                <th className="px-8 py-6">Node Operator</th>
+                <th className="px-8 py-6">Member</th>
                 <th className="px-8 py-6">Authorization Level</th>
                 <th className="px-8 py-6">Settle Amount</th>
                 <th className="px-8 py-6">Broadcast Limit</th>

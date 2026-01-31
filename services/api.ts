@@ -3,15 +3,16 @@ import { User, Product, Order, Ad, Subscription, ChatThread, VerificationStatus 
 
 /**
  * HOLEVIEW MARKET - API SERVICE LAYER
- * Infrastructure: AWS EC2 (3.148.177.49)
- * Default Port: 3001
+ * Infrastructure: AWS EC2 via Cloudflare Proxy
+ * Subdomain: api.holeview.org
+ * Secure Port: 8443 (Cloudflare Supported)
  */
 
-const DEFAULT_IP = '3.148.177.49';
-const DEFAULT_PORT = '3001';
-const API_BASE = `http://${DEFAULT_IP}:${DEFAULT_PORT}`;
+const DEFAULT_DOMAIN = 'api.holeview.org';
+const DEFAULT_PORT = '8443';
+const API_BASE = `https://${DEFAULT_DOMAIN}:${DEFAULT_PORT}`;
 
-// Resolution logic: Vite environment > Default Hardcoded EC2
+// Resolution logic: Vite environment > Default Domain
 const ENV_API = (process.env as any)?.VITE_API_URL;
 const API_ORIGIN = ENV_API || API_BASE;
 
@@ -20,14 +21,13 @@ export const WS_URL = API_ORIGIN.replace(/^http/, 'ws');
 
 /**
  * Detects if the browser is blocking requests due to protocol mismatch
- * (Site is HTTPS but API is HTTP)
  */
 export const isSecurityBlocked = () => {
   return window.location.protocol === 'https:' && API_ORIGIN.startsWith('http:');
 };
 
 /**
- * Robust fetch wrapper with specific error diagnostics for PWAs
+ * Robust fetch wrapper with specific error diagnostics
  */
 async function request(endpoint: string, options: RequestInit = {}) {
   const url = `${BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
@@ -61,7 +61,6 @@ async function request(endpoint: string, options: RequestInit = {}) {
     return await response.json();
   } catch (err: any) {
     console.warn(`[API DEBUG] Failed request to ${url}:`, err);
-    // TypeError is usually thrown when the browser blocks the request before it leaves
     if (err.name === 'TypeError' || err.message === 'Failed to fetch') {
       if (isSecurityBlocked()) {
         throw new Error("SECURITY_BLOCK");
@@ -73,9 +72,6 @@ async function request(endpoint: string, options: RequestInit = {}) {
 }
 
 export const api = {
-  /**
-   * System Health & Connectivity
-   */
   async checkHealth(): Promise<{online: boolean, database: boolean, error?: string}> {
     try {
       const controller = new AbortController();
@@ -93,7 +89,6 @@ export const api = {
       const data = await res.json();
       return { online: true, database: data.database === true };
     } catch (e: any) {
-      console.log("[HEALTH CHECK] Error details:", e);
       if (isSecurityBlocked()) return { online: false, database: false, error: "HTTPS_BLOCK" };
       if (e.name === 'AbortError') return { online: false, database: false, error: "TIMEOUT" };
       return { online: false, database: false, error: "REFUSED" };
@@ -105,9 +100,6 @@ export const api = {
     return request('/settings', { method: 'POST', body: JSON.stringify(s) }); 
   },
 
-  /**
-   * Identity & Users
-   */
   async login(phone: string, key: string): Promise<User | null> {
     return request('/login', { method: 'POST', body: JSON.stringify({ phone, password: key }) });
   },
@@ -125,9 +117,6 @@ export const api = {
     return request('/users/password', { method: 'POST', body: JSON.stringify({ user_id: id, password: p }) }); 
   },
 
-  /**
-   * Marketplace Ecosystem
-   */
   async getProducts(): Promise<Product[]> { return request('/products'); },
   async addProduct(p: Product) { return request('/products', { method: 'POST', body: JSON.stringify(p) }); },
   async uploadToS3(img: string, name: string): Promise<string> {
@@ -135,15 +124,9 @@ export const api = {
     return data.url;
   },
 
-  /**
-   * Transactions
-   */
   async getOrders(): Promise<Order[]> { return request('/orders'); },
   async checkout(orders: Order[]) { return request('/checkout', { method: 'POST', body: JSON.stringify(orders) }); },
 
-  /**
-   * Ad Streams & Subscriptions
-   */
   async getAds(): Promise<Ad[]> { return request('/ads'); },
   async addAd(a: Ad) { return request('/ads', { method: 'POST', body: JSON.stringify(a) }); },
   async getSubscriptions(): Promise<Subscription[]> { return request('/subscriptions'); },
@@ -152,9 +135,6 @@ export const api = {
     return request('/subscriptions/update', { method: 'POST', body: JSON.stringify({ id, status }) });
   },
 
-  /**
-   * Communication Streams
-   */
   async getChats(): Promise<ChatThread[]> { return request('/chats'); },
   async saveChat(c: ChatThread) { return request('/chats', { method: 'POST', body: JSON.stringify(c) }); }
 };

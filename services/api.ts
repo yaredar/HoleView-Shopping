@@ -3,7 +3,7 @@ import { User, Product, Order, Ad, Subscription, ChatThread, VerificationStatus 
 
 /**
  * API ENDPOINT CONFIGURATION
- * IP: 3.148.177.49
+ * EC2 IP: 3.148.177.49
  * Port: 3001
  */
 const BASE_IP = '3.148.177.49';
@@ -37,25 +37,31 @@ const handleResponse = async (response: Response) => {
 };
 
 export const api = {
-  async checkHealth(): Promise<{online: boolean, database: boolean}> {
+  async checkHealth(): Promise<{online: boolean, database: boolean, error?: string}> {
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // Increased timeout for EC2
         const res = await fetch(`${BASE_URL}/health`, { 
             method: 'GET',
             signal: controller.signal,
-            mode: 'cors'
+            mode: 'cors',
+            cache: 'no-store'
         });
         clearTimeout(timeoutId);
         const data = await res.json();
         return { online: true, database: data.database === true };
     } catch (e: any) { 
+        let errorMsg = "Unreachable";
         if (isHttpsMismatch()) {
+            errorMsg = "HTTPS_BLOCK";
             console.error("Mixed Content Block: Browser is blocking HTTP API from HTTPS site.");
+        } else if (e.name === 'AbortError') {
+            errorMsg = "TIMEOUT";
+            console.error("Network Error: Request timed out. Backend at http://3.148.177.49:3001 is too slow or dropping packets.");
         } else {
-            console.error("Network Error: Backend unreachable at http://3.148.177.49:3001.");
+            console.error("Network Error: Backend unreachable at http://3.148.177.49:3001. Possible reasons: Port 3001 closed in AWS SG, or Node process is not running.");
         }
-        return { online: false, database: false }; 
+        return { online: false, database: false, error: errorMsg }; 
     }
   },
 
@@ -75,7 +81,7 @@ export const api = {
             if (isHttpsMismatch()) {
                 throw new Error("SECURITY_BLOCK: Browser blocked the request. Allow 'Insecure Content' in site settings.");
             } else {
-                throw new Error("NETWORK_FAILURE: Connection Refused. Ensure AWS Port 3001 is open and Node server is running.");
+                throw new Error("NETWORK_FAILURE: Connection Refused. Ensure AWS Port 3001 is open and Node server is running on port 3001.");
             }
         }
         throw e;

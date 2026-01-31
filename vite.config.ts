@@ -1,9 +1,10 @@
+
 import { defineConfig } from 'vite';
 
 export default defineConfig({
   server: {
     port: 5173,
-    host: '0.0.0.0', // Allows access from mobile phones on the same network for PWA testing
+    host: '0.0.0.0', 
     strictPort: false,
   },
   build: {
@@ -13,7 +14,7 @@ export default defineConfig({
   define: {
     'process.env': {
       API_KEY: process.env.API_KEY || '',
-      VITE_API_URL: process.env.VITE_API_URL || 'http://3.148.177.49:3001/'
+      VITE_API_URL: process.env.VITE_API_URL || 'https://api.holeview.org:8443'
     }
   }
 });

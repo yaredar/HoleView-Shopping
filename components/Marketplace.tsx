@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { CURRENCY } from '../constants';
 import { Product, Ad } from '../types';
@@ -47,7 +48,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, ads, addToCart, onS
                  <h2 className="text-white text-xl md:text-3xl font-black uppercase tracking-tighter mb-2 line-clamp-1">{ad.title}</h2>
                  <div className="flex gap-3">
                     <span className="px-4 py-1.5 bg-primary text-white rounded-full font-black text-[10px] uppercase tracking-widest shadow-orange-glow">Featured Campaign</span>
-                    {ad.destinationUrl && <a href={ad.destinationUrl} className="px-4 py-1.5 bg-white text-gray-900 rounded-full font-black text-[10px] uppercase tracking-widest">Explore Node</a>}
+                    {ad.destinationUrl && <a href={ad.destinationUrl} className="px-4 py-1.5 bg-white text-gray-900 rounded-full font-black text-[10px] uppercase tracking-widest">Explore Profile</a>}
                  </div>
               </div>
             </div>
@@ -82,7 +83,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, ads, addToCart, onS
              <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6 text-gray-200">
                 <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
              </div>
-             <p className="text-xs font-black text-gray-300 uppercase tracking-ultra">Node lookup failed: No matching data</p>
+             <p className="text-xs font-black text-gray-300 uppercase tracking-ultra">Search failed: No matching items</p>
           </div>
         ) : (
           filtered.map(p => (

@@ -3,240 +3,149 @@ import { User, Product, Order, Ad, Subscription, ChatThread, VerificationStatus 
 
 /**
  * HOLEVIEW MARKET - API SERVICE LAYER
- * Primary Endpoint: EC2 Node (3.148.177.49)
- * Port: 3001
+ * Infrastructure: AWS EC2 (3.148.177.49)
+ * Default Port: 3001
  */
 
 const DEFAULT_IP = '3.148.177.49';
 const DEFAULT_PORT = '3001';
-const DEFAULT_API = `http://${DEFAULT_IP}:${DEFAULT_PORT}`;
+const API_BASE = `http://${DEFAULT_IP}:${DEFAULT_PORT}`;
 
-// Use environment variable if provided by Vite, otherwise fallback to hardcoded EC2
+// Resolution logic: Vite environment > Default Hardcoded EC2
 const ENV_API = (process.env as any)?.VITE_API_URL;
-const API_ORIGIN = ENV_API || DEFAULT_API;
+const API_ORIGIN = ENV_API || API_BASE;
 
 export const BASE_URL = `${API_ORIGIN}/api`;
 export const WS_URL = API_ORIGIN.replace(/^http/, 'ws');
 
 /**
- * Diagnostic helper to detect Mixed Content security blocks
+ * Detects if the browser is blocking requests due to protocol mismatch
+ * (Site is HTTPS but API is HTTP)
  */
-const checkSecurityMismatch = () => {
-  if (window.location.protocol === 'https:' && API_ORIGIN.startsWith('http:')) {
-    return true;
-  }
-  return false;
+const isSecurityBlocked = () => {
+  return window.location.protocol === 'https:' && API_ORIGIN.startsWith('http:');
 };
 
 /**
- * Centralized Fetch Wrapper
+ * Robust fetch wrapper with specific error diagnostics for PWAs
  */
-async function callApi(endpoint: string, options: RequestInit = {}) {
+async function request(endpoint: string, options: RequestInit = {}) {
   const url = `${BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
   
-  const defaultHeaders = {
+  const headers = {
     'Accept': 'application/json',
     'Content-Type': 'application/json',
-  };
-
-  const config = {
-    ...options,
-    headers: {
-      ...defaultHeaders,
-      ...options.headers,
-    },
-    mode: 'cors' as RequestMode,
+    ...options.headers,
   };
 
   try {
-    const response = await fetch(url, config);
+    const response = await fetch(url, { ...options, headers, mode: 'cors' });
     
-    // Handle HTTP error codes (4xx, 5xx)
     if (!response.ok) {
-      let errorMessage = `Server Error: ${response.status}`;
+      let msg = `Platform Error: ${response.status}`;
       try {
-        const errorData = await response.json();
-        errorMessage = errorData.error || errorMessage;
+        const err = await response.json();
+        msg = err.error || msg;
       } catch {
-        const text = await response.text();
-        if (text) errorMessage = text;
+        const txt = await response.text();
+        if (txt) msg = txt;
       }
-      throw new Error(errorMessage);
+      throw new Error(msg);
     }
 
     return await response.json();
-  } catch (error: any) {
-    // Check for "Failed to fetch" which usually means the request never left the browser
-    if (error.name === 'TypeError' || error.message === 'Failed to fetch') {
-      if (checkSecurityMismatch()) {
-        throw new Error("SECURITY_BLOCK: Your browser blocked the connection because this site uses HTTPS but the API uses HTTP. FIX: Click the 'Lock' icon in your URL bar -> Site Settings -> Allow 'Insecure Content'.");
+  } catch (err: any) {
+    // TypeError is usually thrown when the browser blocks the request before it leaves
+    if (err.name === 'TypeError' || err.message === 'Failed to fetch') {
+      if (isSecurityBlocked()) {
+        throw new Error("SECURITY_BLOCK: Browsers block HTTP APIs on HTTPS sites. FIX: Click 'Lock' icon -> Site Settings -> Allow 'Insecure Content'.");
       }
-      throw new Error("INFRASTRUCTURE_OFFLINE: Could not reach the API server. Ensure the Node.js backend is running on EC2 and Port 3001 is open in AWS Security Groups.");
+      throw new Error("NETWORK_REFUSED: Backend is unreachable. Check if EC2 Port 3001 is open and server.js is running.");
     }
-    throw error;
+    throw err;
   }
 }
 
 export const api = {
   /**
-   * Connectivity & System
+   * System Health & Connectivity
    */
   async checkHealth(): Promise<{online: boolean, database: boolean, error?: string}> {
     try {
-      // Small timeout for health check
       const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), 3000);
+      const timer = setTimeout(() => controller.abort(), 4000); // 4s timeout
       
       const res = await fetch(`${BASE_URL}/health`, { 
         signal: controller.signal,
-        mode: 'cors'
+        mode: 'cors',
+        cache: 'no-store'
       });
-      clearTimeout(id);
+      clearTimeout(timer);
       
       const data = await res.json();
       return { online: true, database: data.database === true };
     } catch (e: any) {
-      const isBlock = checkSecurityMismatch();
-      return { 
-        online: false, 
-        database: false, 
-        error: isBlock ? "HTTPS_BLOCK" : (e.name === 'AbortError' ? "TIMEOUT" : "REFUSED") 
-      };
+      if (isSecurityBlocked()) return { online: false, database: false, error: "HTTPS_BLOCK" };
+      if (e.name === 'AbortError') return { online: false, database: false, error: "TIMEOUT" };
+      return { online: false, database: false, error: "REFUSED" };
     }
   },
 
-  async getSettings() {
-    return callApi('/settings');
-  },
-
-  async saveSettings(settings: { commission_rate: number, other_fee_rate: number }) {
-    return callApi('/settings', {
-      method: 'POST',
-      body: JSON.stringify(settings)
-    });
+  async getSettings() { return request('/settings'); },
+  async saveSettings(s: { commission_rate: number, other_fee_rate: number }) { 
+    return request('/settings', { method: 'POST', body: JSON.stringify(s) }); 
   },
 
   /**
-   * User Management
+   * Identity & Users
    */
   async login(phone: string, key: string): Promise<User | null> {
-    return callApi('/login', {
-      method: 'POST',
-      body: JSON.stringify({ phone, password: key })
-    });
+    return request('/login', { method: 'POST', body: JSON.stringify({ phone, password: key }) });
   },
 
-  async register(user: User): Promise<{success: boolean, error?: string}> {
-    return callApi('/register', {
-      method: 'POST',
-      body: JSON.stringify(user)
-    });
+  async register(u: User): Promise<{success: boolean, error?: string}> {
+    return request('/register', { method: 'POST', body: JSON.stringify(u) });
   },
 
-  async getUsers(): Promise<User[]> {
-    return callApi('/users');
+  async getUsers(): Promise<User[]> { return request('/users'); },
+  async updateProfile(u: Partial<User>) { return request('/users/update', { method: 'POST', body: JSON.stringify(u) }); },
+  async approveVerification(id: string, s: VerificationStatus) { 
+    return request('/users/verify', { method: 'POST', body: JSON.stringify({ user_id: id, verification_status: s }) }); 
   },
-
-  async updateProfile(user: Partial<User>) {
-    return callApi('/users/update', {
-      method: 'POST',
-      body: JSON.stringify(user)
-    });
-  },
-
-  async approveVerification(user_id: string, status: VerificationStatus) {
-    return callApi('/users/verify', {
-      method: 'POST',
-      body: JSON.stringify({ user_id, verification_status: status })
-    });
-  },
-
-  async changePassword(user_id: string, new_pwd: string) {
-    return callApi('/users/password', {
-      method: 'POST',
-      body: JSON.stringify({ user_id, password: new_pwd })
-    });
+  async changePassword(id: string, p: string) { 
+    return request('/users/password', { method: 'POST', body: JSON.stringify({ user_id: id, password: p }) }); 
   },
 
   /**
-   * Marketplace & Products
+   * Marketplace Ecosystem
    */
-  async getProducts(): Promise<Product[]> {
-    return callApi('/products');
-  },
-
-  async addProduct(product: Product) {
-    return callApi('/products', {
-      method: 'POST',
-      body: JSON.stringify(product)
-    });
-  },
-
-  async uploadToS3(base64: string, name: string): Promise<string> {
-    const data = await callApi('/upload', {
-      method: 'POST',
-      body: JSON.stringify({ image: base64, name })
-    });
+  async getProducts(): Promise<Product[]> { return request('/products'); },
+  async addProduct(p: Product) { return request('/products', { method: 'POST', body: JSON.stringify(p) }); },
+  async uploadToS3(img: string, name: string): Promise<string> {
+    const data = await request('/upload', { method: 'POST', body: JSON.stringify({ image: img, name }) });
     return data.url;
   },
 
   /**
-   * Orders & Transactions
+   * Transactions
    */
-  async getOrders(): Promise<Order[]> {
-    return callApi('/orders');
-  },
-
-  async checkout(orders: Order[]) {
-    return callApi('/checkout', {
-      method: 'POST',
-      body: JSON.stringify(orders)
-    });
-  },
+  async getOrders(): Promise<Order[]> { return request('/orders'); },
+  async checkout(orders: Order[]) { return request('/checkout', { method: 'POST', body: JSON.stringify(orders) }); },
 
   /**
-   * Marketing & Subscriptions
+   * Ad Streams & Subscriptions
    */
-  async getAds(): Promise<Ad[]> {
-    return callApi('/ads');
-  },
-
-  async addAd(ad: Ad) {
-    return callApi('/ads', {
-      method: 'POST',
-      body: JSON.stringify(ad)
-    });
-  },
-
-  async getSubscriptions(): Promise<Subscription[]> {
-    return callApi('/subscriptions');
-  },
-
-  async addSubscription(sub: Subscription) {
-    return callApi('/subscriptions', {
-      method: 'POST',
-      body: JSON.stringify(sub)
-    });
-  },
-
+  async getAds(): Promise<Ad[]> { return request('/ads'); },
+  async addAd(a: Ad) { return request('/ads', { method: 'POST', body: JSON.stringify(a) }); },
+  async getSubscriptions(): Promise<Subscription[]> { return request('/subscriptions'); },
+  async addSubscription(s: Subscription) { return request('/subscriptions', { method: 'POST', body: JSON.stringify(s) }); },
   async updateSubscriptionStatus(id: string, status: 'completed' | 'declined') {
-    return callApi('/subscriptions/update', {
-      method: 'POST',
-      body: JSON.stringify({ id, status })
-    });
+    return request('/subscriptions/update', { method: 'POST', body: JSON.stringify({ id, status }) });
   },
 
   /**
-   * Communication
+   * Communication Streams
    */
-  async getChats(): Promise<ChatThread[]> {
-    return callApi('/chats');
-  },
-
-  async saveChat(chat: ChatThread) {
-    return callApi('/chats', {
-      method: 'POST',
-      body: JSON.stringify(chat)
-    });
-  }
+  async getChats(): Promise<ChatThread[]> { return request('/chats'); },
+  async saveChat(c: ChatThread) { return request('/chats', { method: 'POST', body: JSON.stringify(c) }); }
 };

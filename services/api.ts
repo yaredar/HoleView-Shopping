@@ -17,10 +17,6 @@ const handleResponse = async (response: Response) => {
         const text = await response.text().catch(() => 'Unknown server error');
         data = { error: text };
     }
-    app.get("/health", (req, res) => {
-  res.status(200).json({ status: "ok" });
-});
-
 
     if (!response.ok) {
         console.error(`[API Error] Status: ${response.status}`, data);

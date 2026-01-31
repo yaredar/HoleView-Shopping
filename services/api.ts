@@ -3,9 +3,18 @@ import { User, Product, Order, Ad, Subscription, ChatThread, VerificationStatus 
 
 /**
  * API ENDPOINT CONFIGURATION
- * Port changed to 3001 to match backend terminal configuration.
+ * IP: 3.148.177.49
+ * Port: 3001
  */
-const BASE_URL = ' https://surplus-environmental-rated-acrobat.trycloudflare.com';
+const BASE_IP = '3.148.177.49';
+const PORT = '3001';
+
+export const BASE_URL = `http://${BASE_IP}:${PORT}/api`;
+export const WS_URL = `ws://${BASE_IP}:${PORT}`;
+
+const isHttpsMismatch = () => {
+  return window.location.protocol === 'https:' && BASE_URL.startsWith('http:');
+};
 
 const handleResponse = async (response: Response) => {
     const contentType = response.headers.get('content-type');
@@ -19,22 +28,34 @@ const handleResponse = async (response: Response) => {
     }
 
     if (!response.ok) {
-        console.error(`[API Error] Status: ${response.status}`, data);
-        // Explicitly handle 405 to provide better user guidance
         if (response.status === 405) {
-            throw new Error(`METHOD_NOT_ALLOWED (405): The server at ${BASE_URL} found the URL but doesn't allow POST. This often happens when hitting a static file server instead of the Node API.`);
+            throw new Error(`METHOD_NOT_ALLOWED: The server at ${BASE_URL} responded but doesn't allow POST.`);
         }
-        throw new Error(data.error || `Server returned ${response.status}: ${data.message || 'No details'}`);
+        throw new Error(data.error || `Server returned ${response.status}`);
     }
     return data;
 };
 
+export const api = {
+  async checkHealth(): Promise<{online: boolean, database: boolean}> {
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const res = await fetch(`${BASE_URL}/health`, { 
+            method: 'GET',
+            signal: controller.signal,
+            mode: 'cors'
+        });
         clearTimeout(timeoutId);
         const data = await res.json();
-        return data.database === true;
+        return { online: true, database: data.database === true };
     } catch (e: any) { 
-        console.warn("Health check failed. Check if port 3001 is open in EC2 Security Groups.");
-        return false; 
+        if (isHttpsMismatch()) {
+            console.error("Mixed Content Block: Browser is blocking HTTP API from HTTPS site.");
+        } else {
+            console.error("Network Error: Backend unreachable at http://3.148.177.49:3001.");
+        }
+        return { online: false, database: false }; 
     }
   },
 
@@ -50,6 +71,13 @@ const handleResponse = async (response: Response) => {
         });
         return await handleResponse(res);
     } catch (e: any) {
+        if (e.message === 'Failed to fetch') {
+            if (isHttpsMismatch()) {
+                throw new Error("SECURITY_BLOCK: Browser blocked the request. Allow 'Insecure Content' in site settings.");
+            } else {
+                throw new Error("NETWORK_FAILURE: Connection Refused. Ensure AWS Port 3001 is open and Node server is running.");
+            }
+        }
         throw e;
     }
   },

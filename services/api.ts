@@ -7,7 +7,7 @@ import { User, Product, Order, Ad, Subscription, ChatThread, VerificationStatus 
  * Port: 3001
  */
 
-const DEFAULT_IP = 'surplus-environmental-rated-acrobat.trycloudflare.com';
+const DEFAULT_IP = '3.148.177.49';
 const DEFAULT_PORT = '3001';
 const DEFAULT_API = `http://${DEFAULT_IP}:${DEFAULT_PORT}`;
 

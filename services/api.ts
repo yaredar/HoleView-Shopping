@@ -4,11 +4,11 @@ import { User, Product, Order, Ad, Subscription, ChatThread, VerificationStatus 
 /**
  * HOLEVIEW MARKET - API SERVICE LAYER
  * Primary: https://api.holeview.org:8443
- * Fallback: http://3.148.177.49:8443
+ * Fallback: http://3.148.177.49:3001
  */
 
 const STORAGE_KEY = 'hv_api_origin';
-const DEFAULT_ORIGIN = 'https://api.holeview.org:8443';
+const DEFAULT_ORIGIN = 'http://3.148.177.49:3001';
 
 // Helper to get the current working origin
 export const getApiOrigin = () => {

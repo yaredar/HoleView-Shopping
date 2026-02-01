@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { UserRole, Product, User } from './types';
 import Layout from './components/Layout';
@@ -20,7 +19,7 @@ import Dashboard from './components/Dashboard';
 import ProductsPage from './components/ProductsPage';
 import ProfilePage from './components/ProfilePage';
 import { useHoleViewStore } from './hooks/useHoleViewStore';
-import { api, BASE_URL } from './services/api';
+import { api, BASE_URL, getApiOrigin, setApiOrigin } from './services/api';
 import { cn } from './lib/utils';
 
 const App: React.FC = () => {
@@ -42,6 +41,7 @@ const App: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [serverStatus, setServerStatus] = useState<'online' | 'no_db' | 'offline' | 'checking' | 'blocked' | 'timeout'>('checking');
   const [showTroubleshoot, setShowTroubleshoot] = useState(false);
+  const [customApiUrl, setCustomApiUrl] = useState(getApiOrigin());
 
   useEffect(() => {
     let isMounted = true;
@@ -66,6 +66,11 @@ const App: React.FC = () => {
     const interval = setInterval(check, 10000);
     return () => { isMounted = false; clearInterval(interval); };
   }, []);
+
+  const handleApplyCustomApi = () => {
+    setApiOrigin(customApiUrl);
+    window.location.reload();
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,7 +131,6 @@ const App: React.FC = () => {
     } finally { setIsProcessing(false); }
   };
 
-  // Define content mapping based on activeTab
   const content = useMemo(() => {
     if (!store.currentUser) return null;
     switch (activeTab) {
@@ -232,7 +236,7 @@ const App: React.FC = () => {
                   {serverStatus === 'online' ? 'Service Active' : 
                    serverStatus === 'blocked' ? 'SECURITY BLOCK' :
                    serverStatus === 'timeout' ? 'LINK LATENCY' :
-                   serverStatus === 'checking' ? 'Establishing Node...' : 'OFFLINE'}
+                   serverStatus === 'checking' ? 'Establishing User Link...' : 'OFFLINE'}
                 </span>
               </div>
             </div>
@@ -269,35 +273,42 @@ const App: React.FC = () => {
                     </div>
 
                     <div className="space-y-6">
+                        {/* API Override Input */}
+                        <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                            <p className="text-slate-400 text-[9px] font-black uppercase mb-3">Manual API Override (Use if DNS fails)</p>
+                            <div className="flex gap-2">
+                                <input 
+                                    type="text" 
+                                    className="input-standard py-2 text-xs flex-1" 
+                                    placeholder="e.g. https://comparing-streams-launched-epic.trycloudflare.com" 
+                                    value={customApiUrl}
+                                    onChange={(e) => setCustomApiUrl(e.target.value)}
+                                />
+                                <button onClick={handleApplyCustomApi} className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[9px] font-black uppercase">Apply</button>
+                            </div>
+                            <p className="text-[8px] text-slate-400 mt-2 italic normal-case">If your domain is showing NXDOMAIN, use your Tunnel URL or raw IP here: <strong>http://3.148.177.49:8443</strong></p>
+                        </div>
+
                         {/* Security Alert */}
                         {(serverStatus === 'blocked' || serverStatus === 'offline') && (
                             <div className="p-6 bg-red-50 rounded-3xl border-2 border-red-100">
-                                <p className="text-red-600 text-[11px] font-black uppercase mb-3">🚨 Browser Policy Warning</p>
+                                <p className="text-red-600 text-[11px] font-black uppercase mb-3">🚨 Connectivity Diagnosis</p>
                                 <p className="text-red-500 text-[10px] normal-case leading-relaxed font-bold">
-                                    Your browser blocks HTTP requests from HTTPS sites. <br/><br/>
-                                    <strong>REQUIRED FIX:</strong><br/>
+                                    <strong>If using Tunnel:</strong> Ensure cloudflared is running on your server and pointing to port 8443.<br/><br/>
+                                    <strong>If using IP (3.148.177.49):</strong><br/>
                                     1. Click the 🔒 Lock (or ⚠️) in the URL bar.<br/>
                                     2. Click <strong>Site Settings</strong>.<br/>
-                                    3. Set <strong>Insecure content</strong> to <strong>Allow</strong>.<br/>
-                                    4. Refresh this page.
+                                    3. Set <strong>Insecure content</strong> to <strong>Allow</strong>.
                                 </p>
                             </div>
                         )}
 
                         <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
                             <p className="text-slate-400 text-[9px] font-black uppercase mb-3">Direct Connectivity Test</p>
-                            <a href={`${BASE_URL}/health`} target="_blank" rel="noreferrer" className="flex items-center justify-between w-full bg-white p-4 rounded-2xl border border-slate-200 text-primary font-black uppercase text-[10px] tracking-widest hover:bg-orange-50 transition-colors">
+                            <a href={`${BASE_URL()}/health`} target="_blank" rel="noreferrer" className="flex items-center justify-between w-full bg-white p-4 rounded-2xl border border-slate-200 text-primary font-black uppercase text-[10px] tracking-widest hover:bg-orange-50 transition-colors">
                                 <span>Open Health Link</span>
                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                             </a>
-                            <p className="text-[8px] text-slate-400 mt-3 normal-case italic">If you see "database: true" in the new tab, but the app is still offline, it is definitely the Browser Security Block.</p>
-                        </div>
-
-                        <div className="p-6 bg-slate-900 rounded-3xl">
-                            <p className="text-slate-500 text-[9px] font-black uppercase mb-3">Server Terminal Command</p>
-                            <div className="bg-black/50 p-4 rounded-xl font-mono text-[9px] text-emerald-400 lowercase select-all">
-                                sudo lsof -i :3001
-                            </div>
                         </div>
                     </div>
                     <button onClick={() => window.location.reload()} className="btn-primary w-full py-5 text-[11px]">Sync Cluster & Refresh</button>

@@ -14,7 +14,7 @@ export default defineConfig({
   define: {
     'process.env': {
       API_KEY: process.env.API_KEY || '',
-      VITE_API_URL: process.env.VITE_API_URL || 'https://api.holeview.org:443'
+      VITE_API_URL: process.env.VITE_API_URL || 'https://api.holeview.org:8443'
     }
   }
 });

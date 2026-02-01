@@ -3,34 +3,45 @@ import { User, Product, Order, Ad, Subscription, ChatThread, VerificationStatus 
 
 /**
  * HOLEVIEW MARKET - API SERVICE LAYER
- * Infrastructure: AWS EC2 via Cloudflare Proxy
- * Subdomain: api.holeview.org
- * Secure Port: 8443 (Cloudflare Supported)
+ * Primary: https://api.holeview.org:8443
+ * Fallback: http://3.148.177.49:8443
  */
 
-const DEFAULT_DOMAIN = 'api.holeview.org';
-const DEFAULT_PORT = '8443';
-const API_BASE = `https://${DEFAULT_DOMAIN}:${DEFAULT_PORT}`;
+const STORAGE_KEY = 'hv_api_origin';
+const DEFAULT_ORIGIN = 'https://api.holeview.org:8443';
 
-// Resolution logic: Vite environment > Default Domain
-const ENV_API = (process.env as any)?.VITE_API_URL;
-const API_ORIGIN = ENV_API || API_BASE;
+// Helper to get the current working origin
+export const getApiOrigin = () => {
+  return localStorage.getItem(STORAGE_KEY) || DEFAULT_ORIGIN;
+};
 
-export const BASE_URL = `${API_ORIGIN}/api`;
-export const WS_URL = API_ORIGIN.replace(/^http/, 'ws');
+// Helper to set a new origin (e.g., from the Troubleshooting UI)
+export const setApiOrigin = (url: string) => {
+  if (!url) {
+    localStorage.removeItem(STORAGE_KEY);
+  } else {
+    // Ensure no trailing slash
+    const formatted = url.replace(/\/$/, '');
+    localStorage.setItem(STORAGE_KEY, formatted);
+  }
+};
+
+export const BASE_URL = () => `${getApiOrigin()}/api`;
+export const WS_URL = () => getApiOrigin().replace(/^http/, 'ws');
 
 /**
  * Detects if the browser is blocking requests due to protocol mismatch
  */
 export const isSecurityBlocked = () => {
-  return window.location.protocol === 'https:' && API_ORIGIN.startsWith('http:');
+  return window.location.protocol === 'https:' && getApiOrigin().startsWith('http:');
 };
 
 /**
- * Robust fetch wrapper with specific error diagnostics
+ * Robust fetch wrapper
  */
 async function request(endpoint: string, options: RequestInit = {}) {
-  const url = `${BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  const origin = getApiOrigin();
+  const url = `${origin}/api${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
   
   const headers = {
     'Accept': 'application/json',
@@ -62,9 +73,7 @@ async function request(endpoint: string, options: RequestInit = {}) {
   } catch (err: any) {
     console.warn(`[API DEBUG] Failed request to ${url}:`, err);
     if (err.name === 'TypeError' || err.message === 'Failed to fetch') {
-      if (isSecurityBlocked()) {
-        throw new Error("SECURITY_BLOCK");
-      }
+      if (isSecurityBlocked()) throw new Error("SECURITY_BLOCK");
       throw new Error("NETWORK_REFUSED");
     }
     throw err;
@@ -77,7 +86,7 @@ export const api = {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 3000); 
       
-      const res = await fetch(`${BASE_URL}/health`, { 
+      const res = await fetch(`${BASE_URL()}/health`, { 
         signal: controller.signal,
         mode: 'cors',
         cache: 'no-store'

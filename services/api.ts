@@ -9,7 +9,7 @@ import { User, Product, Order, Ad, Subscription, ChatThread, VerificationStatus 
  */
 
 const DEFAULT_DOMAIN = 'api.holeview.org';
-const DEFAULT_PORT = '443';
+const DEFAULT_PORT = '8443';
 const API_BASE = `https://${DEFAULT_DOMAIN}:${DEFAULT_PORT}`;
 
 // Resolution logic: Vite environment > Default Domain

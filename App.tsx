@@ -19,7 +19,7 @@ import Dashboard from './components/Dashboard';
 import ProductsPage from './components/ProductsPage';
 import ProfilePage from './components/ProfilePage';
 import { useHoleViewStore } from './hooks/useHoleViewStore';
-import { api, BASE_URL, getApiOrigin, setApiOrigin } from './services/api';
+import { api, getApiOrigin } from './services/api';
 import { cn } from './lib/utils';
 
 const App: React.FC = () => {
@@ -29,19 +29,19 @@ const App: React.FC = () => {
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [globalSearchTerm, setGlobalSearchTerm] = useState('');
 
-  // Form States
-  const [isSigningUp, setIsSigningUp] = useState(false);
+  // Auth States
+  const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [firstName, setFirstName] = useState('');
+  const [middleName, setMiddleName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.BUYER);
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [serverStatus, setServerStatus] = useState<'online' | 'no_db' | 'offline' | 'checking' | 'blocked' | 'timeout'>('checking');
-  const [showTroubleshoot, setShowTroubleshoot] = useState(false);
-  const [customApiUrl, setCustomApiUrl] = useState(getApiOrigin());
 
   useEffect(() => {
     let isMounted = true;
@@ -67,11 +67,6 @@ const App: React.FC = () => {
     return () => { isMounted = false; clearInterval(interval); };
   }, []);
 
-  const handleApplyCustomApi = () => {
-    setApiOrigin(customApiUrl);
-    window.location.reload();
-  };
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isProcessing) return;
@@ -80,7 +75,7 @@ const App: React.FC = () => {
       const user = await api.login(phone, password);
       if (user) {
         if (user.status === 'deactive') {
-          alert("SECURITY: Account suspended.");
+          alert("SECURITY: Account suspended by administrator.");
           setIsProcessing(false);
           return;
         }
@@ -99,11 +94,7 @@ const App: React.FC = () => {
         alert("ACCESS DENIED: Credentials mismatch.");
       }
     } catch (err: any) {
-      if (err.message === 'SECURITY_BLOCK' || serverStatus === 'blocked') {
-          setShowTroubleshoot(true);
-      } else {
-          alert(`SYSTEM ERROR: ${err.message || 'Check connection'}`);
-      }
+      alert(`SYSTEM ERROR: ${err.message || 'Check connection'}`);
     } finally {
       setIsProcessing(false);
     }
@@ -112,23 +103,51 @@ const App: React.FC = () => {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isProcessing) return;
-    if (password !== confirmPassword) { alert("VALIDATION ERROR: Passwords do not match."); return; }
+    if (password !== confirmPassword) { 
+      alert("VALIDATION ERROR: Passwords do not match."); 
+      return; 
+    }
+    if (phone.length < 10) {
+      alert("VALIDATION ERROR: Please enter a valid phone number.");
+      return;
+    }
+
     setIsProcessing(true);
     try {
       const newUser: User = {
         user_id: `U-${Date.now()}`,
-        phone, password, first_name: firstName, middle_name: '', last_name: lastName,
-        created_at: new Date().toISOString(), created_by: 'Self', role: selectedRole, status: 'active',
+        phone, 
+        password, 
+        first_name: firstName, 
+        middle_name: middleName, 
+        last_name: lastName,
+        delivery_address: deliveryAddress,
+        created_at: new Date().toISOString(), 
+        created_by: 'Self', 
+        role: selectedRole, 
+        status: 'active',
         verification_status: 'none'
       };
       const result = await api.register(newUser);
       if (result.success) {
-        alert(`SUCCESS: Account created. Please Sign In.`);
-        setIsSigningUp(false);
-      } else alert(`ERROR: ${result.error}`);
+        alert(`SUCCESS: Account created for ${firstName}. Please Sign In.`);
+        setAuthMode('signin');
+      } else {
+        alert(`ERROR: ${result.error}`);
+      }
     } catch (err: any) { 
-        setShowTroubleshoot(true);
+        alert("Transmission error: " + err.message);
     } finally { setIsProcessing(false); }
+  };
+
+  const handleForgotPwd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!phone) {
+      alert("Please enter your registered phone number.");
+      return;
+    }
+    alert(`RECOVERY INITIALIZED: A reset request for ${phone} has been sent to the System Operator. Please verify identity to continue.`);
+    setAuthMode('signin');
   };
 
   const content = useMemo(() => {
@@ -215,10 +234,10 @@ const App: React.FC = () => {
 
   if (!store.isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-slate-900 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
-        <div className="card-premium w-full max-w-md p-10 shadow-2xl animate-scale-up border-slate-800">
-          <div className="flex flex-col items-center mb-10">
-            <div className={cn("w-16 h-16 flex items-center justify-center text-white text-2xl font-black rounded-3xl shadow-2xl transition-all duration-500", isSigningUp ? 'bg-emerald-500' : 'bg-[#FF5722]')}>HV</div>
+      <div className="min-h-screen flex items-center justify-center p-4 bg-slate-900 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] overflow-y-auto py-12">
+        <div className="card-premium w-full max-w-md p-8 md:p-10 shadow-2xl animate-scale-up border-slate-800">
+          <div className="flex flex-col items-center mb-8">
+            <div className={cn("w-16 h-16 flex items-center justify-center text-white text-2xl font-black rounded-3xl shadow-2xl transition-all duration-500", authMode === 'signup' ? 'bg-emerald-500' : 'bg-[#FF5722]')}>HV</div>
             <h1 className="text-2xl font-black tracking-tighter uppercase text-slate-900 mt-6">HoleView</h1>
             <div className="mt-3">
               <div className={cn("badge-status px-4 py-2 border", 
@@ -236,85 +255,103 @@ const App: React.FC = () => {
                   {serverStatus === 'online' ? 'Service Active' : 
                    serverStatus === 'blocked' ? 'SECURITY BLOCK' :
                    serverStatus === 'timeout' ? 'LINK LATENCY' :
-                   serverStatus === 'checking' ? 'Establishing User Link...' : 'OFFLINE'}
+                   serverStatus === 'checking' ? 'Establishing Link...' : 'OFFLINE'}
                 </span>
               </div>
             </div>
           </div>
           
-          <div className="flex bg-slate-100 p-1 rounded-2xl mb-8 border">
-            <button onClick={() => setIsSigningUp(false)} className={cn("flex-1 py-3 text-[10px] font-black uppercase rounded-xl transition-all", !isSigningUp ? "bg-white shadow-sm" : "text-slate-400")}>Sign In</button>
-            <button onClick={() => setIsSigningUp(true)} className={cn("flex-1 py-3 text-[10px] font-black uppercase rounded-xl transition-all", isSigningUp ? "bg-white shadow-sm" : "text-slate-400")}>Sign Up</button>
-          </div>
-
-          <form onSubmit={isSigningUp ? handleSignUp : handleLogin} className="space-y-4 text-left">
-            <input type="tel" placeholder="Phone Number" className="input-standard" value={phone} onChange={e => setPhone(e.target.value)} required />
-            <input type="password" placeholder="Password" className="input-standard" value={password} onChange={e => setPassword(e.target.value)} required />
-            <button type="submit" disabled={isProcessing} className="btn-primary w-full mt-6 text-xs flex items-center justify-center gap-2">
-              {isProcessing && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
-              <span>{isSigningUp ? "Create Account" : "Link Account"}</span>
-            </button>
-          </form>
-
-          <button 
-              onClick={() => setShowTroubleshoot(true)}
-              className="w-full mt-6 p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl border border-slate-100 text-[10px] text-slate-500 font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
-          >
-            <span>⚠️ Infrastructure Diagnostic</span>
-          </button>
-        </div>
-
-        {showTroubleshoot && (
-            <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
-                <div className="bg-white rounded-[40px] max-w-lg w-full p-10 shadow-2xl animate-scale-up text-left space-y-8">
-                    <div className="flex justify-between items-center">
-                        <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Diagnostic Tool</h3>
-                        <button onClick={() => setShowTroubleshoot(false)} className="text-slate-300 hover:text-red-500 transition-colors"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12"/></svg></button>
-                    </div>
-
-                    <div className="space-y-6">
-                        {/* API Override Input */}
-                        <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
-                            <p className="text-slate-400 text-[9px] font-black uppercase mb-3">Manual API Override (Use if DNS fails)</p>
-                            <div className="flex gap-2">
-                                <input 
-                                    type="text" 
-                                    className="input-standard py-2 text-xs flex-1" 
-                                    placeholder="e.g. https://comparing-streams-launched-epic.trycloudflare.com" 
-                                    value={customApiUrl}
-                                    onChange={(e) => setCustomApiUrl(e.target.value)}
-                                />
-                                <button onClick={handleApplyCustomApi} className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[9px] font-black uppercase">Apply</button>
-                            </div>
-                            <p className="text-[8px] text-slate-400 mt-2 italic normal-case">If your domain is showing NXDOMAIN, use your Tunnel URL or raw IP here: <strong>http://3.148.177.49:8443</strong></p>
-                        </div>
-
-                        {/* Security Alert */}
-                        {(serverStatus === 'blocked' || serverStatus === 'offline') && (
-                            <div className="p-6 bg-red-50 rounded-3xl border-2 border-red-100">
-                                <p className="text-red-600 text-[11px] font-black uppercase mb-3">🚨 Connectivity Diagnosis</p>
-                                <p className="text-red-500 text-[10px] normal-case leading-relaxed font-bold">
-                                    <strong>If using Tunnel:</strong> Ensure cloudflared is running on your server and pointing to port 8443.<br/><br/>
-                                    <strong>If using IP (3.148.177.49):</strong><br/>
-                                    1. Click the 🔒 Lock (or ⚠️) in the URL bar.<br/>
-                                    2. Click <strong>Site Settings</strong>.<br/>
-                                    3. Set <strong>Insecure content</strong> to <strong>Allow</strong>.
-                                </p>
-                            </div>
-                        )}
-
-                        <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
-                            <p className="text-slate-400 text-[9px] font-black uppercase mb-3">Direct Connectivity Test</p>
-                            <a href={`${BASE_URL()}/health`} target="_blank" rel="noreferrer" className="flex items-center justify-between w-full bg-white p-4 rounded-2xl border border-slate-200 text-primary font-black uppercase text-[10px] tracking-widest hover:bg-orange-50 transition-colors">
-                                <span>Open Health Link</span>
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                            </a>
-                        </div>
-                    </div>
-                    <button onClick={() => window.location.reload()} className="btn-primary w-full py-5 text-[11px]">Sync Cluster & Refresh</button>
-                </div>
+          {authMode !== 'forgot' && (
+            <div className="flex bg-slate-100 p-1 rounded-2xl mb-8 border">
+              <button onClick={() => setAuthMode('signin')} className={cn("flex-1 py-3 text-[10px] font-black uppercase rounded-xl transition-all", authMode === 'signin' ? "bg-white shadow-sm" : "text-slate-400")}>Sign In</button>
+              <button onClick={() => setAuthMode('signup')} className={cn("flex-1 py-3 text-[10px] font-black uppercase rounded-xl transition-all", authMode === 'signup' ? "bg-white shadow-sm" : "text-slate-400")}>Sign Up</button>
             </div>
-        )}
+          )}
+
+          {authMode === 'signin' && (
+            <form onSubmit={handleLogin} className="space-y-4 text-left">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Phone Number</label>
+                <input type="tel" placeholder="09xxxxxxxx" className="input-standard" value={phone} onChange={e => setPhone(e.target.value)} required />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Secure Key</label>
+                <input type="password" placeholder="••••••••" className="input-standard" value={password} onChange={e => setPassword(e.target.value)} required />
+              </div>
+              <div className="flex justify-end">
+                <button type="button" onClick={() => setAuthMode('forgot')} className="text-[10px] font-black text-[#FF5722] uppercase tracking-widest hover:underline">Forgot Password?</button>
+              </div>
+              <button type="submit" disabled={isProcessing} className="btn-primary w-full mt-2 text-xs flex items-center justify-center gap-2">
+                {isProcessing && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
+                <span>Secure Login</span>
+              </button>
+            </form>
+          )}
+
+          {authMode === 'signup' && (
+            <form onSubmit={handleSignUp} className="space-y-4 text-left">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">First Name</label>
+                  <input type="text" placeholder="John" className="input-standard py-3" value={firstName} onChange={e => setFirstName(e.target.value)} required />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Middle Name</label>
+                  <input type="text" placeholder="Doe" className="input-standard py-3" value={middleName} onChange={e => setMiddleName(e.target.value)} />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Last Name</label>
+                <input type="text" placeholder="Smith" className="input-standard py-3" value={lastName} onChange={e => setLastName(e.target.value)} required />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Phone Number</label>
+                <input type="tel" placeholder="09xxxxxxxx" className="input-standard py-3" value={phone} onChange={e => setPhone(e.target.value)} required />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Physical Address</label>
+                <textarea rows={2} placeholder="City, Sub-city, Woreda, H.No..." className="input-standard py-3 text-xs" value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)} required />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Market Role</label>
+                <select className="input-standard py-3 text-xs uppercase" value={selectedRole} onChange={e => setSelectedRole(e.target.value as UserRole)}>
+                   <option value={UserRole.BUYER}>Buyer (Shopping only)</option>
+                   <option value={UserRole.SELLER}>Seller (List Products)</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Password</label>
+                  <input type="password" placeholder="••••••••" className="input-standard py-3" value={password} onChange={e => setPassword(e.target.value)} required />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Confirm</label>
+                  <input type="password" placeholder="••••••••" className="input-standard py-3" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
+                </div>
+              </div>
+              <button type="submit" disabled={isProcessing} className="btn-primary !bg-emerald-500 w-full mt-4 text-xs flex items-center justify-center gap-2">
+                {isProcessing && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
+                <span>Complete Registration</span>
+              </button>
+            </form>
+          )}
+
+          {authMode === 'forgot' && (
+            <div className="space-y-6">
+              <div className="text-left">
+                <h3 className="text-lg font-black text-slate-900 uppercase tracking-tighter">Recover Access</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Enter your linked phone number</p>
+              </div>
+              <form onSubmit={handleForgotPwd} className="space-y-4">
+                <input type="tel" placeholder="09xxxxxxxx" className="input-standard" value={phone} onChange={e => setPhone(e.target.value)} required />
+                <div className="flex gap-3">
+                  <button type="button" onClick={() => setAuthMode('signin')} className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-widest">Back</button>
+                  <button type="submit" className="flex-2 btn-primary !shadow-none">Reset Key</button>
+                </div>
+              </form>
+            </div>
+          )}
+        </div>
       </div>
     );
   }

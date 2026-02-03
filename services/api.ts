@@ -7,7 +7,7 @@ import { User, Product, Order, Ad, Subscription, ChatThread, VerificationStatus 
  */
 
 const STORAGE_KEY = 'hv_api_origin';
-const DEFAULT_ORIGIN = 'https://comparing-streams-launched-epic.trycloudflare.com';
+const DEFAULT_ORIGIN = 'https://api.holeview.org';
 
 // Helper to get the current working origin
 export const getApiOrigin = () => {

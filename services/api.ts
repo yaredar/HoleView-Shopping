@@ -2,8 +2,8 @@ import { User, Product, Order, Ad, Subscription, ChatThread, VerificationStatus 
 
 /**
  * HOLEVIEW MARKET - API SERVICE LAYER
- * Primary Tunnel: https://comparing-streams-launched-epic.trycloudflare.com
- * Fallback: http://3.148.177.49:8443
+ * Production: https://api.holeview.org
+ * Fallback: http://3.148.177.49:3001
  */
 
 const STORAGE_KEY = 'hv_api_origin';
@@ -14,12 +14,11 @@ export const getApiOrigin = () => {
   return localStorage.getItem(STORAGE_KEY) || DEFAULT_ORIGIN;
 };
 
-// Helper to set a new origin (e.g., from the Troubleshooting UI)
+// Helper to set a new origin
 export const setApiOrigin = (url: string) => {
   if (!url) {
     localStorage.removeItem(STORAGE_KEY);
   } else {
-    // Ensure no trailing slash
     const formatted = url.replace(/\/$/, '');
     localStorage.setItem(STORAGE_KEY, formatted);
   }

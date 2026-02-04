@@ -19,7 +19,7 @@ import Dashboard from './components/Dashboard';
 import ProductsPage from './components/ProductsPage';
 import ProfilePage from './components/ProfilePage';
 import { useHoleViewStore } from './hooks/useHoleViewStore';
-import { api, getApiOrigin, setApiOrigin } from './services/api';
+import { api } from './services/api';
 import { cn } from './lib/utils';
 
 const App: React.FC = () => {
@@ -28,10 +28,6 @@ const App: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [globalSearchTerm, setGlobalSearchTerm] = useState('');
-
-  // Diagnostic states
-  const [showConfig, setShowConfig] = useState(false);
-  const [tempOrigin, setTempOrigin] = useState(getApiOrigin());
 
   // Auth States
   const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
@@ -67,14 +63,9 @@ const App: React.FC = () => {
       }
     };
     check();
-    const interval = setInterval(check, 8000);
+    const interval = setInterval(check, 15000); // Increased interval to reduce noise/slowness
     return () => { isMounted = false; clearInterval(interval); };
   }, []);
-
-  const saveOrigin = () => {
-    setApiOrigin(tempOrigin);
-    window.location.reload();
-  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -246,11 +237,6 @@ const App: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center p-4 bg-slate-900 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] overflow-y-auto py-12">
         <div className="card-premium w-full max-w-md p-8 md:p-10 shadow-2xl animate-scale-up border-slate-800 relative">
           
-          {/* Debug Gear */}
-          <button onClick={() => setShowConfig(true)} className="absolute top-6 right-6 p-2 bg-slate-800 rounded-xl text-slate-500 hover:text-white transition-all">
-             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-          </button>
-
           <div className="flex flex-col items-center mb-8">
             <div className={cn("w-16 h-16 flex items-center justify-center text-white text-2xl font-black rounded-3xl shadow-2xl transition-all duration-500", authMode === 'signup' ? 'bg-emerald-500' : 'bg-[#FF5722]')}>HV</div>
             <h1 className="text-2xl font-black tracking-tighter uppercase text-slate-900 mt-6">HoleView</h1>
@@ -367,38 +353,6 @@ const App: React.FC = () => {
             </div>
           )}
         </div>
-
-        {/* Origin Config Modal */}
-        {showConfig && (
-          <div className="fixed inset-0 bg-black/90 z-[999] backdrop-blur-2xl flex items-center justify-center p-4">
-             <div className="bg-slate-900 w-full max-w-sm p-8 rounded-[40px] border border-slate-800 animate-scale-up space-y-8">
-                <div className="text-left">
-                   <h3 className="text-white text-xl font-black uppercase tracking-tighter">Diagnostic Tool</h3>
-                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Uplink Configuration</p>
-                </div>
-                <div className="space-y-4">
-                   <div className="space-y-1 text-left">
-                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-4">Active API Cluster</label>
-                      <input 
-                        className="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl p-4 text-xs text-white font-mono outline-none focus:border-orange-500" 
-                        value={tempOrigin} 
-                        onChange={e => setTempOrigin(e.target.value)}
-                        placeholder="https://..."
-                      />
-                   </div>
-                   <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700 text-left space-y-1">
-                      <p className="text-[8px] font-black text-slate-500 uppercase">Protocol Alert</p>
-                      <p className="text-[10px] text-amber-400 font-bold leading-relaxed">Ensure HTTPS is active on your server before using the domain. Otherwise, use the direct IP with port 3001.</p>
-                   </div>
-                   <div className="flex gap-3">
-                      <button onClick={() => setShowConfig(false)} className="flex-1 py-4 bg-slate-800 text-slate-400 rounded-2xl font-black uppercase text-[10px]">Close</button>
-                      <button onClick={saveOrigin} className="flex-1 py-4 bg-orange-600 text-white rounded-2xl font-black uppercase text-[10px]">Sync Origin</button>
-                   </div>
-                   <button onClick={() => { setTempOrigin(getApiOrigin()); setApiOrigin(null); window.location.reload(); }} className="w-full text-[9px] font-black text-slate-600 uppercase tracking-widest hover:text-white transition-all">Restore System Defaults</button>
-                </div>
-             </div>
-          </div>
-        )}
       </div>
     );
   }

@@ -2,20 +2,16 @@ import { User, Product, Order, Ad, Subscription, ChatThread, VerificationStatus 
 
 /**
  * HOLEVIEW MARKET - API SERVICE LAYER
- * Production: https://api.holeview.org
- * Fallback: http://3.148.177.49:3001
  */
 
 const STORAGE_KEY = 'hv_api_origin';
 const DEFAULT_ORIGIN = 'https://api.holeview.org';
 
-// Helper to get the current working origin
 export const getApiOrigin = () => {
   return localStorage.getItem(STORAGE_KEY) || DEFAULT_ORIGIN;
 };
 
-// Helper to set a new origin
-export const setApiOrigin = (url: string) => {
+export const setApiOrigin = (url: string | null) => {
   if (!url) {
     localStorage.removeItem(STORAGE_KEY);
   } else {
@@ -27,16 +23,10 @@ export const setApiOrigin = (url: string) => {
 export const BASE_URL = () => `${getApiOrigin()}/api`;
 export const WS_URL = () => getApiOrigin().replace(/^http/, 'ws');
 
-/**
- * Detects if the browser is blocking requests due to protocol mismatch
- */
 export const isSecurityBlocked = () => {
   return window.location.protocol === 'https:' && getApiOrigin().startsWith('http:');
 };
 
-/**
- * Robust fetch wrapper
- */
 async function request(endpoint: string, options: RequestInit = {}) {
   const origin = getApiOrigin();
   const url = `${origin}/api${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
@@ -56,49 +46,45 @@ async function request(endpoint: string, options: RequestInit = {}) {
     });
     
     if (!response.ok) {
-      let msg = `Platform Error: ${response.status}`;
-      try {
-        const err = await response.json();
-        msg = err.error || msg;
-      } catch {
-        const txt = await response.text();
-        if (txt) msg = txt;
-      }
-      throw new Error(msg);
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error || `Error ${response.status}`);
     }
 
     return await response.json();
   } catch (err: any) {
-    console.warn(`[API DEBUG] Failed request to ${url}:`, err);
     if (err.name === 'TypeError' || err.message === 'Failed to fetch') {
-      if (isSecurityBlocked()) throw new Error("SECURITY_BLOCK");
-      throw new Error("NETWORK_REFUSED");
+      if (isSecurityBlocked()) throw new Error("HTTPS_SEC_BLOCK");
+      throw new Error("CONN_REFUSED");
     }
     throw err;
   }
 }
 
 export const api = {
-  async checkHealth(): Promise<{online: boolean, database: boolean, error?: string}> {
+  async checkHealth(): Promise<{online: boolean, database: boolean, error?: string, origin: string}> {
+    const origin = getApiOrigin();
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 3000); 
+      const timer = setTimeout(() => controller.abort(), 4000); 
       
-      const res = await fetch(`${BASE_URL()}/health`, { 
+      const res = await fetch(`${origin}/api/health`, { 
         signal: controller.signal,
         mode: 'cors',
         cache: 'no-store'
       });
       clearTimeout(timer);
       
-      if (!res.ok) throw new Error("HTTP_ERROR_" + res.status);
+      if (!res.ok) throw new Error("HTTP_" + res.status);
       
       const data = await res.json();
-      return { online: true, database: data.database === true };
+      return { online: true, database: data.database === true, origin };
     } catch (e: any) {
-      if (isSecurityBlocked()) return { online: false, database: false, error: "HTTPS_BLOCK" };
-      if (e.name === 'AbortError') return { online: false, database: false, error: "TIMEOUT" };
-      return { online: false, database: false, error: "REFUSED" };
+      let error = "OFFLINE";
+      if (isSecurityBlocked()) error = "HTTPS_SEC_BLOCK";
+      else if (e.name === 'AbortError') error = "TIMEOUT";
+      else if (e.message.includes("HTTP_")) error = e.message;
+      
+      return { online: false, database: false, error, origin };
     }
   },
 

@@ -1,20 +1,21 @@
-
 import React, { useState } from 'react';
 import { CURRENCY, INITIAL_PRODUCT_TYPES } from '../constants';
 import { api } from '../services/api';
+import { User } from '../types';
 
 interface AddProductProps {
   onAdd: (product: any) => Promise<boolean>;
+  currentUser: User | null;
   isSubscribed: boolean;
   goToSubscription: () => void;
 }
 
-const AddProduct: React.FC<AddProductProps> = ({ onAdd, isSubscribed, goToSubscription }) => {
+const AddProduct: React.FC<AddProductProps> = ({ onAdd, currentUser, isSubscribed, goToSubscription }) => {
   const [form, setForm] = useState({ 
     name: '', 
     price: '', 
     shipping_fee: '',
-    contact_phone: '',
+    contact_phone: currentUser?.phone || '',
     category: 'Electronics', 
     condition: 'Brand New' as 'Brand New' | 'Used',
     unit: 'Unit', 
@@ -54,7 +55,7 @@ const AddProduct: React.FC<AddProductProps> = ({ onAdd, isSubscribed, goToSubscr
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isSubscribed) return;
+    if (!isSubscribed || !currentUser) return;
     if (images.length === 0) {
       setError("Please add at least one product photo.");
       return;
@@ -90,12 +91,26 @@ const AddProduct: React.FC<AddProductProps> = ({ onAdd, isSubscribed, goToSubscr
             sizes: form.sizes ? form.sizes.split(',').map(s => s.trim()) : [],
             stock: Number(form.stock) || 1,
             images: s3Urls,
+            seller_name: `${currentUser.first_name} ${currentUser.last_name}`,
+            seller_phone: currentUser.phone,
             seller_rating: 5.0
         });
 
         if (successResult) {
             setSuccess(true);
-            setForm({ name: '', price: '', shipping_fee: '', contact_phone: '', category: 'Electronics', condition: 'Brand New', unit: 'Unit', description: '', colors: '', sizes: '', stock: '' });
+            setForm({ 
+                name: '', 
+                price: '', 
+                shipping_fee: '', 
+                contact_phone: currentUser?.phone || '', 
+                category: 'Electronics', 
+                condition: 'Brand New', 
+                unit: 'Unit', 
+                description: '', 
+                colors: '', 
+                sizes: '', 
+                stock: '' 
+            });
             setImages([]);
             setTimeout(() => setSuccess(false), 3000);
         } else {
@@ -152,7 +167,7 @@ const AddProduct: React.FC<AddProductProps> = ({ onAdd, isSubscribed, goToSubscr
             <input required type="text" className="w-full p-4 bg-slate-50 border-none rounded-2xl outline-none font-bold text-sm" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-4">Contact Phone</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Contact Phone</label>
             <input required type="tel" className="w-full p-4 bg-slate-50 border-none rounded-2xl outline-none font-bold text-sm" placeholder="09xxxxxxxx" value={form.contact_phone} onChange={e => setForm({...form, contact_phone: e.target.value})} />
           </div>
         </div>

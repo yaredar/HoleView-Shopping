@@ -46,9 +46,7 @@ const App: React.FC = () => {
   useEffect(() => {
     let isMounted = true;
     const check = async () => {
-      // Don't check health if already processing a login to save bandwidth/latency
       if (isProcessing) return;
-
       try {
         const health = await api.checkHealth();
         if (isMounted) {
@@ -65,9 +63,7 @@ const App: React.FC = () => {
         if (isMounted) setServerStatus('offline');
       }
     };
-    
     check();
-    // Less aggressive check to improve login speed and reduce noise
     const interval = setInterval(check, 30000); 
     return () => { isMounted = false; clearInterval(interval); };
   }, [isProcessing]);
@@ -241,7 +237,7 @@ const App: React.FC = () => {
   if (!store.isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-slate-900 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] overflow-y-auto py-12">
-        <div className="card-premium w-full max-sm p-8 md:p-10 shadow-2xl animate-scale-up border-slate-800 relative">
+        <div className="card-premium w-full max-w-md p-8 md:p-10 shadow-2xl animate-scale-up border-slate-800 relative">
           
           <div className="flex flex-col items-center mb-8">
             <div className={cn("w-16 h-16 flex items-center justify-center text-white text-2xl font-black rounded-3xl shadow-2xl transition-all duration-500", authMode === 'signup' ? 'bg-emerald-500' : 'bg-[#FF5722]')}>HV</div>
@@ -270,19 +266,19 @@ const App: React.FC = () => {
           
           {authMode !== 'forgot' && (
             <div className="flex bg-slate-100 p-1 rounded-2xl mb-8 border">
-              <button onClick={() => setAuthMode('signin')} className={cn("flex-1 py-3 text-[10px] font-black uppercase rounded-xl transition-all", authMode === 'signin' ? "bg-white shadow-sm" : "text-slate-400")}>Sign In</button>
-              <button onClick={() => setAuthMode('signup')} className={cn("flex-1 py-3 text-[10px] font-black uppercase rounded-xl transition-all", authMode === 'signup' ? "bg-white shadow-sm" : "text-slate-400")}>Sign Up</button>
+              <button onClick={() => setAuthMode('signin')} className={cn("flex-1 py-3 text-[10px] font-black uppercase rounded-xl transition-all", authMode === 'signin' ? "bg-white shadow-sm" : "text-slate-500")}>Sign In</button>
+              <button onClick={() => setAuthMode('signup')} className={cn("flex-1 py-3 text-[10px] font-black uppercase rounded-xl transition-all", authMode === 'signup' ? "bg-white shadow-sm" : "text-slate-500")}>Sign Up</button>
             </div>
           )}
 
           {authMode === 'signin' && (
             <form onSubmit={handleLogin} className="space-y-4 text-left">
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Phone Number</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Phone Number</label>
                 <input type="tel" placeholder="09xxxxxxxx" className="input-standard" value={phone} onChange={e => setPhone(e.target.value)} required />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Secure Key</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Secure Key</label>
                 <input type="password" placeholder="••••••••" className="input-standard" value={password} onChange={e => setPassword(e.target.value)} required />
               </div>
               <div className="flex justify-end">
@@ -299,28 +295,28 @@ const App: React.FC = () => {
             <form onSubmit={handleSignUp} className="space-y-4 text-left">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">First Name</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">First Name</label>
                   <input type="text" placeholder="John" className="input-standard py-3" value={firstName} onChange={e => setFirstName(e.target.value)} required />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Middle Name</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Middle Name</label>
                   <input type="text" placeholder="Doe" className="input-standard py-3" value={middleName} onChange={e => setMiddleName(e.target.value)} />
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Last Name</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Last Name</label>
                 <input type="text" placeholder="Smith" className="input-standard py-3" value={lastName} onChange={e => setLastName(e.target.value)} required />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Phone Number</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Phone Number</label>
                 <input type="tel" placeholder="09xxxxxxxx" className="input-standard py-3" value={phone} onChange={e => setPhone(e.target.value)} required />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Physical Address</label>
-                <textarea rows={2} placeholder="City, Sub-city, Woreda, H.No..." className="input-standard py-3 text-xs" value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)} required />
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Physical Address</label>
+                <textarea rows={2} placeholder="City, Sub-city..." className="input-standard py-3 text-xs" value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)} required />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Market Role</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Market Role</label>
                 <select className="input-standard py-3 text-xs uppercase" value={selectedRole} onChange={e => setSelectedRole(e.target.value as UserRole)}>
                    <option value={UserRole.BUYER}>Buyer (Shopping only)</option>
                    <option value={UserRole.SELLER}>Seller (List Products)</option>
@@ -328,11 +324,11 @@ const App: React.FC = () => {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Password</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Password</label>
                   <input type="password" placeholder="••••••••" className="input-standard py-3" value={password} onChange={e => setPassword(e.target.value)} required />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Confirm</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Confirm</label>
                   <input type="password" placeholder="••••••••" className="input-standard py-3" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
                 </div>
               </div>
@@ -347,7 +343,7 @@ const App: React.FC = () => {
             <div className="space-y-6">
               <div className="text-left">
                 <h3 className="text-lg font-black text-slate-900 uppercase tracking-tighter">Recover Access</h3>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Enter your linked phone number</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Enter your linked phone number</p>
               </div>
               <form onSubmit={handleForgotPwd} className="space-y-4">
                 <input type="tel" placeholder="09xxxxxxxx" className="input-standard" value={phone} onChange={e => setPhone(e.target.value)} required />

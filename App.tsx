@@ -46,6 +46,9 @@ const App: React.FC = () => {
   useEffect(() => {
     let isMounted = true;
     const check = async () => {
+      // Don't check health if already processing a login to save bandwidth/latency
+      if (isProcessing) return;
+
       try {
         const health = await api.checkHealth();
         if (isMounted) {
@@ -62,10 +65,12 @@ const App: React.FC = () => {
         if (isMounted) setServerStatus('offline');
       }
     };
+    
     check();
-    const interval = setInterval(check, 15000); // Increased interval to reduce noise/slowness
+    // Less aggressive check to improve login speed and reduce noise
+    const interval = setInterval(check, 30000); 
     return () => { isMounted = false; clearInterval(interval); };
-  }, []);
+  }, [isProcessing]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -219,6 +224,7 @@ const App: React.FC = () => {
         return (
           <AddProduct 
             onAdd={store.addProductToDb} 
+            currentUser={store.currentUser}
             isSubscribed={store.subscriptions.some(s => s.user_id === store.currentUser!.user_id && s.status === 'completed')} 
             goToSubscription={() => setActiveTab('Subscription')} 
           />
@@ -235,7 +241,7 @@ const App: React.FC = () => {
   if (!store.isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-slate-900 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] overflow-y-auto py-12">
-        <div className="card-premium w-full max-w-md p-8 md:p-10 shadow-2xl animate-scale-up border-slate-800 relative">
+        <div className="card-premium w-full max-sm p-8 md:p-10 shadow-2xl animate-scale-up border-slate-800 relative">
           
           <div className="flex flex-col items-center mb-8">
             <div className={cn("w-16 h-16 flex items-center justify-center text-white text-2xl font-black rounded-3xl shadow-2xl transition-all duration-500", authMode === 'signup' ? 'bg-emerald-500' : 'bg-[#FF5722]')}>HV</div>

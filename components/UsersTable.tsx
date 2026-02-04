@@ -1,118 +1,114 @@
-import React, { useState, useMemo } from 'react';
-import { User, UserRole, VerificationStatus } from '../types';
-import { ROLE_LABELS } from '../constants';
+import React, { useState, useRef } from 'react';
+import { Ad } from '../types';
 import { api } from '../services/api';
 import { cn } from '../lib/utils';
 
-interface UsersTableProps {
-  users: User[];
-  setUsers: React.Dispatch<React.SetStateAction<User[]>>;
-  canCreate?: boolean;
-  currentUser: User | null;
-  searchTerm: string;
+interface AdsPageProps {
+  ads: Ad[];
+  setAds: React.Dispatch<React.SetStateAction<Ad[]>>;
 }
 
-const UsersTable: React.FC<UsersTableProps> = ({ users, setUsers, canCreate = false, currentUser, searchTerm }) => {
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [viewingUser, setViewingUser] = useState<User | null>(null);
+const AdsPage: React.FC<AdsPageProps> = ({ ads, setAds }) => {
+  const [form, setForm] = useState({ title: '', destUrl: '', type: 'image' as 'image' | 'video', mediaUrl: '', adsense: '' });
+  const [showForm, setShowForm] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [adminPwd, setAdminPwd] = useState('');
-  
-  const [createForm, setCreateForm] = useState({ first_name: '', last_name: '', phone: '', password: '', role: UserRole.BUYER });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isSuperUser = currentUser?.role === UserRole.SUPER_USER || currentUser?.role === UserRole.SYSTEM_ADMIN;
-
-  const filteredUsers = useMemo(() => {
-    return users.filter(user => {
-      const fullName = `${user.first_name} ${user.last_name}`.toLowerCase();
-      const phone = user.phone.toLowerCase();
-      const search = searchTerm.toLowerCase();
-      return fullName.includes(search) || phone.includes(search);
-    });
-  }, [users, searchTerm]);
-
-  const handleAdminResetPwd = async () => {
-    if (!viewingUser || !adminPwd) return;
+  const handleToggle = async (ad: Ad) => {
     setIsSyncing(true);
     try {
-      await api.changePassword(viewingUser.user_id, adminPwd);
-      alert("System Overwrite Success: User access key updated.");
-      setAdminPwd('');
-    } catch (e) { alert("Reset failed."); } finally { setIsSyncing(false); }
+      await api.toggleAd(ad.id, !ad.isActive);
+      setAds(prev => prev.map(a => a.id === ad.id ? { ...a, isActive: !ad.isActive } : a));
+    } catch (e) { alert("Failed to toggle status."); } finally { setIsSyncing(false); }
   };
 
-  const handleVerifyAction = async (user_id: string, status: VerificationStatus) => {
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Permanently remove this campaign?")) return;
     setIsSyncing(true);
     try {
-      await api.approveVerification(user_id, status);
-      setUsers(prev => prev.map(u => u.user_id === user_id ? { ...u, verification_status: status } : u));
-      if (viewingUser?.user_id === user_id) setViewingUser(prev => prev ? { ...prev, verification_status: status } : null);
-      alert(`Trust status: ${status}`);
-    } catch (err) { alert("Sync failed."); } finally { setIsSyncing(false); }
+      await api.deleteAd(id);
+      setAds(prev => prev.filter(a => a.id !== id));
+    } catch (e) { alert("Delete failed."); } finally { setIsSyncing(false); }
+  };
+
+  const handleAddAd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.mediaUrl || isSyncing) return;
+    setIsSyncing(true);
+    try {
+        const newAd: Ad = {
+          id: `AD-${Date.now()}`,
+          title: form.title,
+          mediaType: form.type,
+          mediaUrl: form.mediaUrl,
+          destinationUrl: form.destUrl,
+          isActive: true,
+          adsenseCode: form.adsense
+        };
+        await api.addAd(newAd);
+        setAds([newAd, ...ads]);
+        setShowForm(false);
+        setForm({ title: '', destUrl: '', type: 'image', mediaUrl: '', adsense: '' });
+    } catch (err) { alert("Upload failed."); } finally { setIsSyncing(false); }
   };
 
   return (
-    <div className="space-y-6 animate-scale-up">
-      <div className="flex justify-between items-center bg-white p-6 rounded-3xl border border-slate-100 shadow-soft">
-        <div className="text-left">
-          <h2 className="text-xl font-black uppercase tracking-tighter text-slate-900">User Registry</h2>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Authorized Cluster Management</p>
+    <div className="space-y-10 animate-scale-up pb-24">
+      <div className="bg-white p-10 rounded-[50px] border border-slate-100 shadow-premium flex flex-col md:flex-row justify-between items-center gap-6 relative overflow-hidden">
+        <div className="text-left w-full">
+          <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Market Feeds</h3>
+          <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Ecosystem visibility controls</p>
         </div>
-        {canCreate && <button onClick={() => setShowCreateModal(true)} className="btn-primary text-[10px]">Provision User</button>}
+        <button onClick={() => setShowForm(true)} className="flex-1 md:flex-none btn-primary shadow-orange-glow">Create Campaign</button>
       </div>
 
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-soft overflow-hidden overflow-x-auto no-scrollbar">
-        <table className="w-full text-left">
-          <thead><tr className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b"><th className="px-6 py-4">Identity Entity</th><th className="px-6 py-4">Role</th><th className="px-6 py-4 text-right">Action</th></tr></thead>
-          <tbody className="divide-y divide-slate-50">
-            {filteredUsers.map((user) => (
-              <tr key={user.user_id} className="group cursor-pointer hover:bg-slate-50/50" onClick={() => setViewingUser(user)}>
-                <td className="px-6 py-4 text-left">
-                  <p className="text-sm font-black text-slate-800 uppercase tracking-tighter">{user.first_name} {user.last_name}</p>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{user.phone}</p>
-                </td>
-                <td className="px-6 py-4 text-left"><span className="text-[9px] font-black text-blue-500 bg-blue-50 px-3 py-1.5 rounded-lg uppercase">{ROLE_LABELS[user.role]}</span></td>
-                <td className="px-6 py-4 text-right"><button className="btn-ghost p-2"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg></button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {viewingUser && (
-        <div className="fixed inset-0 bg-black/80 z-[150] backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white rounded-[40px] w-full max-w-md p-10 shadow-premium animate-scale-up relative max-h-[90vh] overflow-y-auto no-scrollbar text-left">
-             <button onClick={() => setViewingUser(null)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12"/></svg></button>
-             <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter mb-8">Admin Overwrite</h3>
-             
-             <div className="space-y-6">
-                <div className="bg-slate-50 p-6 rounded-3xl border">
-                   <p className="text-xs font-black text-slate-800 uppercase">{viewingUser.first_name} {viewingUser.last_name}</p>
-                   <p className="text-[10px] text-slate-400 font-bold uppercase">{viewingUser.phone}</p>
-                </div>
-
-                {isSuperUser && (
-                  <div className="space-y-4 pt-4 border-t">
-                     <p className="text-[10px] font-black text-red-500 uppercase tracking-widest ml-4">Emergency Access Key Reset</p>
-                     <div className="flex gap-2">
-                        <input className="input-standard flex-1" placeholder="New Password..." value={adminPwd} onChange={e => setAdminPwd(e.target.value)} />
-                        <button onClick={handleAdminResetPwd} className="btn-primary !bg-red-500 text-[10px]">Reset</button>
-                     </div>
-                  </div>
-                )}
-
-                {viewingUser.verification_status === 'pending' && (
-                  <div className="grid grid-cols-2 gap-3 pt-6">
-                     <button onClick={() => handleVerifyAction(viewingUser.user_id, 'verified')} className="py-4 bg-emerald-500 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-emerald-100">Approve</button>
-                     <button onClick={() => handleVerifyAction(viewingUser.user_id, 'rejected')} className="py-4 bg-red-50 text-red-500 rounded-2xl font-black text-[10px] uppercase">Reject</button>
-                  </div>
-                )}
-             </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {ads.map(ad => (
+          <div key={ad.id} className={cn("bg-white rounded-[45px] border border-slate-100 shadow-soft overflow-hidden flex flex-col transition-all", !ad.isActive && "opacity-60")}>
+            <div className="h-64 bg-slate-900 relative">
+               {ad.mediaType === 'video' ? <video src={ad.mediaUrl} className="w-full h-full object-cover" muted autoPlay loop playsInline /> : <img src={ad.mediaUrl} className="w-full h-full object-cover" />}
+               <div className="absolute top-6 right-6 flex gap-2">
+                 <button onClick={() => handleToggle(ad)} className={cn("px-4 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest shadow-xl", ad.isActive ? "bg-emerald-500 text-white" : "bg-orange-500 text-white")}>
+                   {ad.isActive ? 'Streaming' : 'Paused'}
+                 </button>
+                 <button onClick={() => handleDelete(ad.id)} className="p-2 bg-red-500 text-white rounded-xl shadow-xl hover:bg-red-600 transition-colors">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                 </button>
+               </div>
+            </div>
+            <div className="p-8 text-left">
+               <h4 className="font-black text-slate-800 uppercase tracking-tighter text-xl truncate">{ad.title}</h4>
+               <p className="text-[9px] text-slate-400 font-bold uppercase truncate mt-2">{ad.destinationUrl || 'No Target'}</p>
+            </div>
           </div>
+        ))}
+      </div>
+
+      {showForm && (
+        <div className="fixed inset-0 bg-black/80 z-[120] flex items-center justify-center p-4 backdrop-blur-xl">
+          <form onSubmit={handleAddAd} className="bg-white rounded-[60px] w-full max-w-xl p-12 shadow-premium animate-scale-up space-y-8 relative">
+            <button type="button" onClick={() => setShowForm(false)} className="absolute top-8 right-8 text-slate-300 hover:text-red-500 transition-colors">
+               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+            <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">New Feed Uplink</h3>
+            <div className="space-y-4">
+               <input required className="input-standard" placeholder="Campaign Headline..." value={form.title} onChange={e => setForm({...form, title: e.target.value})} />
+               <div onClick={() => fileInputRef.current?.click()} className="w-full h-44 bg-slate-50 border-2 border-dashed rounded-[30px] flex items-center justify-center cursor-pointer overflow-hidden">
+                  {form.mediaUrl ? <img src={form.mediaUrl} className="w-full h-full object-cover" /> : <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Select Media</span>}
+               </div>
+               <input ref={fileInputRef} type="file" className="hidden" accept="image/*,video/*" onChange={e => {
+                 const file = e.target.files?.[0]; if (!file) return;
+                 const reader = new FileReader(); reader.onloadend = () => setForm({ ...form, mediaUrl: reader.result as string, type: file.type.startsWith('video') ? 'video' : 'image' });
+                 reader.readAsDataURL(file);
+               }} />
+               <input className="input-standard" placeholder="Target URL..." value={form.destUrl} onChange={e => setForm({...form, destUrl: e.target.value})} />
+            </div>
+            <button type="submit" disabled={isSyncing} className="btn-primary w-full py-5">{isSyncing ? 'Transmitting...' : 'Launch Feed'}</button>
+          </form>
         </div>
       )}
     </div>
   );
 };
 
-export default UsersTable;
+export default AdsPage;

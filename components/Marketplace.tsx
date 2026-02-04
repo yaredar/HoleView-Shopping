@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CURRENCY } from '../constants';
 import { Product, Ad } from '../types';
 
@@ -32,9 +31,15 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, ads, addToCart, onS
      p.seller_name.toLowerCase().includes(search.toLowerCase()))
   );
 
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>, productName: string) => {
+    console.warn(`Marketplace Image Error: [${productName}] failed to load from ${e.currentTarget.src}`);
+    // Optional: set a fallback image
+    e.currentTarget.src = "https://placehold.co/400x400/F1F5F9/Slate?text=Image+Unavailable";
+  };
+
   return (
     <div className="space-y-8 animate-scale-up">
-      {/* Banner Stream - Auto Scroll Enabled */}
+      {/* Banner Stream */}
       {activeAds.length > 0 && search === '' && (
         <div className="relative h-48 md:h-72 rounded-[40px] overflow-hidden bg-gray-900 shadow-premium border border-white/10 group">
           {activeAds.map((ad, idx) => (
@@ -83,7 +88,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, ads, addToCart, onS
              <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6 text-gray-200">
                 <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
              </div>
-             <p className="text-xs font-black text-gray-300 uppercase tracking-ultra">Search failed: No matching items</p>
+             <p className="text-xs font-black text-gray-300 uppercase tracking-widest">Search failed: No matching items</p>
           </div>
         ) : (
           filtered.map(p => (
@@ -93,7 +98,12 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, ads, addToCart, onS
               onClick={() => onSelectProduct(p)}
             >
               <div className="relative aspect-square bg-gray-50 overflow-hidden">
-                <img src={p.images[0]} alt={p.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                <img 
+                  src={p.images && p.images[0] ? p.images[0] : "https://placehold.co/400x400/F1F5F9/Slate?text=No+Image"} 
+                  alt={p.name} 
+                  onError={(e) => handleImageError(e, p.name)}
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                />
                 <div className={`absolute top-4 right-4 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase text-white shadow-xl ${p.condition === 'Brand New' ? 'bg-secondary' : 'bg-gray-800'}`}>
                   {p.condition === 'Brand New' ? 'Pristine' : 'Certified Used'}
                 </div>
@@ -105,7 +115,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, ads, addToCart, onS
                 </div>
                 <div className="mt-auto flex items-center justify-between pt-4 border-t border-gray-50">
                   <div className="flex flex-col">
-                    <span className="text-xl font-black text-gray-900 tracking-tighter">{p.price.toLocaleString()}</span>
+                    <span className="text-xl font-black text-gray-900 tracking-tighter">{Number(p.price).toLocaleString()}</span>
                     <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{CURRENCY} NET</span>
                   </div>
                   <button 

@@ -37,13 +37,19 @@ async function request(endpoint: string, options: RequestInit = {}) {
     ...options.headers,
   };
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout for general requests
+
   try {
     const response = await fetch(url, { 
       ...options, 
       headers, 
       mode: 'cors',
-      cache: 'no-cache'
+      cache: 'no-cache',
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);
     
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
@@ -52,6 +58,8 @@ async function request(endpoint: string, options: RequestInit = {}) {
 
     return await response.json();
   } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') throw new Error("TIMEOUT");
     if (err.name === 'TypeError' || err.message === 'Failed to fetch') {
       if (isSecurityBlocked()) throw new Error("HTTPS_SEC_BLOCK");
       throw new Error("CONN_REFUSED");

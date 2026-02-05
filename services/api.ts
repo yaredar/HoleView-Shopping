@@ -23,7 +23,7 @@ export const setApiOrigin = (url: string | null) => {
   }
 };
 
-export const BASE_URL = 'https://api.holeview.org';
+export const BASE_URL = () => `${getApiOrigin()}/api`;
 
 export const WS_URL = () => {
   const origin = getApiOrigin();
@@ -70,8 +70,13 @@ export const api = {
   async checkHealth() {
     const origin = getApiOrigin();
     try {
+      // Use no-cache and explicit headers to satisfy preflight checks
       const res = await fetch(`${origin}/api/health`, { 
-        mode: 'cors', 
+        mode: 'cors',
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        },
         cache: 'no-store', 
         signal: AbortSignal.timeout(5000) 
       });
@@ -79,7 +84,7 @@ export const api = {
       const data = await res.json();
       return { online: true, database: data.database === true, origin };
     } catch (e) { 
-      console.warn("Health check lookup failed at origin:", origin);
+      // Silently log health failures to keep console clean for users
       return { online: false, database: false, origin }; 
     }
   },

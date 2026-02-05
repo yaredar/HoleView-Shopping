@@ -19,7 +19,7 @@ import Dashboard from './components/Dashboard';
 import ProductsPage from './components/ProductsPage';
 import ProfilePage from './components/ProfilePage';
 import { useHoleViewStore } from './hooks/useHoleViewStore';
-import { api } from './services/api';
+import { api, setApiOrigin, getApiOrigin } from './services/api';
 import { cn } from './lib/utils';
 
 const App: React.FC = () => {
@@ -41,28 +41,41 @@ const App: React.FC = () => {
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.BUYER);
 
   const [isProcessing, setIsProcessing] = useState(false);
-  const [serverStatus, setServerStatus] = useState<'online' | 'no_db' | 'offline' | 'checking' | 'blocked' | 'timeout'>('checking');
+  const [serverStatus, setServerStatus] = useState<'online' | 'no_db' | 'offline' | 'checking'>('checking');
+  const [showNodeConfig, setShowNodeConfig] = useState(false);
+  const [tempApiUrl, setTempApiUrl] = useState(getApiOrigin());
+
+  const checkHealth = async () => {
+    setServerStatus('checking');
+    try {
+      const health = await api.checkHealth();
+      if (health.online) {
+          if (health.database) setServerStatus('online');
+          else setServerStatus('no_db');
+      } else {
+          setServerStatus('offline');
+      }
+    } catch (e) { 
+      setServerStatus('offline'); 
+    }
+  };
 
   useEffect(() => {
-    let isMounted = true;
-    const check = async () => {
-      if (isProcessing) return;
-      try {
-        const health = await api.checkHealth();
-        if (isMounted) {
-            if (health.online) {
-                if (health.database) setServerStatus('online');
-                else setServerStatus('no_db');
-            } else {
-                setServerStatus('offline');
-            }
-        }
-      } catch (e) { if (isMounted) setServerStatus('offline'); }
-    };
-    check();
-    const interval = setInterval(check, 30000); 
-    return () => { isMounted = false; clearInterval(interval); };
-  }, [isProcessing]);
+    checkHealth();
+    const interval = setInterval(checkHealth, 30000); 
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleUpdateNode = () => {
+    setApiOrigin(tempApiUrl);
+    setShowNodeConfig(false);
+    checkHealth();
+    if (store.isAuthenticated) {
+      store.syncWithDb(true);
+    } else {
+      window.location.reload();
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,14 +84,28 @@ const App: React.FC = () => {
     try {
       const user = await api.login(phone, password);
       if (user) {
-        if (user.status === 'deactive') { alert("SECURITY: Account suspended."); setIsProcessing(false); return; }
-        if ([UserRole.SUPER_USER, UserRole.SYSTEM_ADMIN].includes(user.role)) setActiveTab('Dashboard');
-        else if (user.role === UserRole.SELLER) setActiveTab('Sales Hub');
-        else setActiveTab('Marketplace');
+        if (user.status === 'deactive') { 
+          alert("SECURITY: Account suspended."); 
+          setIsProcessing(false); 
+          return; 
+        }
         store.setCurrentUser(user);
         store.setIsAuthenticated(true);
-      } else { alert("ACCESS DENIED: Credentials mismatch."); }
-    } catch (err: any) { alert(`SYSTEM ERROR: ${err.message}`); } finally { setIsProcessing(false); }
+        if ([UserRole.SUPER_USER, UserRole.SYSTEM_ADMIN].includes(user.role)) {
+          setActiveTab('Dashboard');
+        } else if (user.role === UserRole.SELLER) {
+          setActiveTab('Sales Hub');
+        } else {
+          setActiveTab('Marketplace');
+        }
+      } else { 
+        alert("ACCESS DENIED: Credentials mismatch."); 
+      }
+    } catch (err: any) { 
+      alert(`SYSTEM ERROR: ${err.message}. Check your Node Configuration.`); 
+    } finally { 
+      setIsProcessing(false); 
+    }
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -87,16 +114,50 @@ const App: React.FC = () => {
     if (password !== confirmPassword) { alert("Passwords do not match."); return; }
     setIsProcessing(true);
     try {
-      const newUser: User = { user_id: `U-${Date.now()}`, phone, password, first_name: firstName, middle_name: middleName, last_name: lastName, delivery_address: deliveryAddress, created_at: new Date().toISOString(), created_by: 'Self', role: selectedRole, status: 'active', verification_status: 'none' };
+      const newUser: User = { 
+        user_id: `U-${Date.now()}`, 
+        phone, 
+        password, 
+        first_name: firstName, 
+        middle_name: middleName, 
+        last_name: lastName, 
+        delivery_address: deliveryAddress, 
+        created_at: new Date().toISOString(), 
+        created_by: 'Self', 
+        role: selectedRole, 
+        status: 'active', 
+        verification_status: 'none' 
+      };
       const res = await api.register(newUser);
-      if (res.success) { alert(`SUCCESS: Account created for ${firstName}. Please Sign In.`); setAuthMode('signin'); }
-    } catch (err: any) { alert("Registration failed: " + err.message); } finally { setIsProcessing(false); }
+      if (res.success) { 
+        alert(`SUCCESS: Account created for ${firstName}. Please Sign In.`); 
+        setAuthMode('signin'); 
+      }
+    } catch (err: any) { 
+      alert("Registration failed: " + err.message); 
+    } finally { 
+      setIsProcessing(false); 
+    }
   };
 
   const content = useMemo(() => {
     if (!store.currentUser) return null;
     switch (activeTab) {
-      case 'Dashboard': return <Dashboard stats={{ totalSales: store.orders.filter(o => o.status === 'delivered').reduce((sum, o) => sum + o.total, 0), activeUsers: store.users.length, totalProducts: store.products.length, activeSubs: store.subscriptions.filter(s => s.status === 'completed').length, recentOrders: store.orders, users: store.users, products: store.products }} isDbConnected={store.isDbConnected} isSyncing={store.isSyncing} onRetrySync={() => store.syncWithDb(true)} />;
+      case 'Dashboard': 
+        return <Dashboard 
+          stats={{ 
+            totalSales: store.orders.filter(o => o.status === 'delivered').reduce((sum, o) => sum + o.total, 0), 
+            activeUsers: store.users.length, 
+            totalProducts: store.products.length, 
+            activeSubs: store.subscriptions.filter(s => s.status === 'completed').length, 
+            recentOrders: store.orders, 
+            users: store.users, 
+            products: store.products 
+          }} 
+          isDbConnected={store.isDbConnected} 
+          isSyncing={store.isSyncing} 
+          onRetrySync={() => store.syncWithDb(true)} 
+        />;
       case 'Inbox': return <Inbox chats={store.chats} setChats={store.setChats} activeChatId={activeChatId} setActiveChatId={setActiveChatId} users={store.users} />;
       case 'Users': return <UsersTable users={store.users} setUsers={store.setUsers} canCreate={true} currentUser={store.currentUser} searchTerm={globalSearchTerm} />;
       case 'Payments': return <PaymentsTable orders={store.orders} currentUser={store.currentUser} searchTerm={globalSearchTerm} />;
@@ -122,11 +183,21 @@ const App: React.FC = () => {
           <div className="flex flex-col items-center mb-8">
             <div className={cn("w-16 h-16 flex items-center justify-center text-white text-2xl font-black rounded-3xl transition-all", authMode === 'signup' ? 'bg-emerald-500' : 'bg-[#FF5722]')}>HV</div>
             <h1 className="text-2xl font-black uppercase text-slate-900 mt-6 tracking-tighter">HoleView</h1>
+            
+            <div className="flex items-center gap-2 mt-4">
+               <div className={cn("w-2 h-2 rounded-full", serverStatus === 'online' ? "bg-emerald-500 shadow-emerald-glow" : "bg-red-500 animate-pulse")} />
+               <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                 {serverStatus === 'online' ? 'Cluster Active' : 'Cluster Offline'}
+               </span>
+               <button onClick={() => setShowNodeConfig(true)} className="ml-2 text-[9px] font-black text-primary underline uppercase tracking-widest">Config Node</button>
+            </div>
           </div>
+
           <div className="flex bg-slate-100 p-1 rounded-2xl mb-8 border">
             <button onClick={() => setAuthMode('signin')} className={cn("flex-1 py-3 text-[10px] font-black uppercase rounded-xl transition-all", authMode === 'signin' ? "bg-white shadow-sm" : "text-slate-500")}>Sign In</button>
             <button onClick={() => setAuthMode('signup')} className={cn("flex-1 py-3 text-[10px] font-black uppercase rounded-xl transition-all", authMode === 'signup' ? "bg-white shadow-sm" : "text-slate-500")}>Sign Up</button>
           </div>
+
           {authMode === 'signin' ? (
             <form onSubmit={handleLogin} className="space-y-4 text-left">
               <input type="tel" placeholder="Phone Number" className="input-standard" value={phone} onChange={e => setPhone(e.target.value)} required />
@@ -135,13 +206,38 @@ const App: React.FC = () => {
             </form>
           ) : (
             <form onSubmit={handleSignUp} className="space-y-4 text-left">
-              <div className="grid grid-cols-2 gap-3"><input placeholder="First Name" className="input-standard py-3" value={firstName} onChange={e => setFirstName(e.target.value)} required /><input placeholder="Last Name" className="input-standard py-3" value={lastName} onChange={e => setLastName(e.target.value)} required /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <input placeholder="First Name" className="input-standard py-3" value={firstName} onChange={e => setFirstName(e.target.value)} required />
+                <input placeholder="Last Name" className="input-standard py-3" value={lastName} onChange={e => setLastName(e.target.value)} required />
+              </div>
               <input type="tel" placeholder="Phone Number" className="input-standard py-3" value={phone} onChange={e => setPhone(e.target.value)} required />
-              <select className="input-standard py-3 text-xs uppercase" value={selectedRole} onChange={e => setSelectedRole(e.target.value as UserRole)}><option value={UserRole.BUYER}>Buyer</option><option value={UserRole.SELLER}>Seller</option></select>
+              <select className="input-standard py-3 text-xs uppercase" value={selectedRole} onChange={e => setSelectedRole(e.target.value as UserRole)}>
+                <option value={UserRole.BUYER}>Buyer</option>
+                <option value={UserRole.SELLER}>Seller</option>
+              </select>
               <input type="password" placeholder="Key" className="input-standard py-3" value={password} onChange={e => setPassword(e.target.value)} required />
               <input type="password" placeholder="Confirm" className="input-standard py-3" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
               <button type="submit" disabled={isProcessing} className="btn-primary !bg-emerald-500 w-full text-xs">Complete Registration</button>
             </form>
+          )}
+
+          {showNodeConfig && (
+            <div className="absolute inset-0 bg-white/95 backdrop-blur rounded-[40px] z-50 flex flex-col p-10 text-left animate-scale-up">
+               <h4 className="text-xl font-black uppercase text-slate-900 tracking-tighter mb-4">Infrastructure Uplink</h4>
+               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed mb-6">
+                 Set your backend API node origin (e.g., http://your-ip:3001) to synchronize the cluster.
+               </p>
+               <input 
+                 className="input-standard mb-4" 
+                 placeholder="http://1.2.3.4:3001" 
+                 value={tempApiUrl} 
+                 onChange={e => setTempApiUrl(e.target.value)} 
+               />
+               <div className="flex gap-3 mt-auto">
+                  <button onClick={() => setShowNodeConfig(false)} className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px]">Cancel</button>
+                  <button onClick={handleUpdateNode} className="flex-2 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] shadow-xl">Apply Change</button>
+               </div>
+            </div>
           )}
         </div>
       </div>

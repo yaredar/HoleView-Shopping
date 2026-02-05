@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Product, User, ChatThread, Order, Ad, Subscription } from '../types';
-import { api } from '../services/api';
+import { api, getApiOrigin } from '../services/api';
 
 export const useHoleViewStore = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -26,13 +26,26 @@ export const useHoleViewStore = () => {
       syncInProgress.current = true;
       setIsSyncing(true);
       try {
+          const origin = getApiOrigin();
           const [p, o, u, a, s, c, set] = await Promise.all([
               api.getProducts(), api.getOrders(), api.getUsers(), api.getAds(), api.getSubscriptions(), api.getChats(), api.getSettings()
           ]);
-          setProducts(p || []);
+          
+          // Map local URLs to full API paths for visibility
+          const mappedProducts = (p || []).map((prod: any) => ({
+            ...prod,
+            images: (prod.images || []).map((img: string) => img.startsWith('/') ? `${origin}${img}` : img)
+          }));
+
+          const mappedAds = (a || []).map((ad: any) => ({
+            ...ad,
+            mediaUrl: ad.mediaUrl.startsWith('/') ? `${origin}${ad.mediaUrl}` : ad.mediaUrl
+          }));
+
+          setProducts(mappedProducts);
           setOrders(o || []);
           setUsers(u || []);
-          setAds(a || []);
+          setAds(mappedAds);
           setSubscriptions(s || []);
           setChats(c || []);
           if (set) { 
@@ -48,21 +61,22 @@ export const useHoleViewStore = () => {
 
   const logout = () => { setIsAuthenticated(false); setCurrentUser(null); setCart([]); };
 
-  const handleCheckout = async (finalTotalFromUI?: number) => {
+  const handleCheckout = async (finalTotalFromUI: number) => {
     if (!currentUser || cart.length === 0) return false;
     try {
       const bySeller: Record<string, any[]> = {};
       cart.forEach(i => { 
-        const k = i.seller_phone || '0000'; 
+        const k = String(i.seller_phone || '0000').trim(); 
         if (!bySeller[k]) bySeller[k] = []; 
         bySeller[k].push(i); 
       });
 
-      const newOrders: Order[] = Object.keys(bySeller).map(k => {
+      const orderEntries: Order[] = Object.keys(bySeller).map(k => {
         const items = bySeller[k];
         const sub = items.reduce((s, i) => s + (i.price * i.quantity), 0);
         const ship = items.reduce((s, i) => s + (i.shipping_fee || 0), 0);
         const fee = sub * (otherFeeRate / 100);
+        const roundedTotal = Number((sub + ship + fee).toFixed(2));
         
         return {
           id: `ORD-${Date.now()}-${Math.floor(Math.random() * 999)}`,
@@ -71,7 +85,7 @@ export const useHoleViewStore = () => {
           buyer_phone: currentUser.phone,
           seller_name: items[0].seller_name || 'Unknown',
           seller_phone: k,
-          total: sub + ship + fee,
+          total: roundedTotal,
           status: 'pending',
           timestamp: new Date().toISOString(),
           is_paid_confirmed: false,
@@ -86,14 +100,17 @@ export const useHoleViewStore = () => {
         };
       });
 
-      const res = await api.checkout(newOrders);
+      const res = await api.checkout(orderEntries);
       if (res.success) { 
         setCart([]); 
         syncWithDb(true); 
         return true; 
       }
       return false;
-    } catch (e) { return false; }
+    } catch (e) { 
+        console.error("Checkout Sync Error:", e);
+        return false; 
+    }
   };
 
   return {

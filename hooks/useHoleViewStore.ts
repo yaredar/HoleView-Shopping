@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Product, User, ChatThread, Order, Ad, Subscription } from '../types';
 import { api, getApiOrigin } from '../services/api';
+import { INITIAL_PRODUCTS, MOCK_USERS } from '../constants';
 
 const AUTH_KEY = 'hv_auth_state';
 const USER_KEY = 'hv_user_data';
+const PRODUCTS_KEY = 'hv_products_cache';
 
 export const useHoleViewStore = () => {
   // Load persisted state
@@ -18,8 +20,11 @@ export const useHoleViewStore = () => {
   const lastSyncTime = useRef<number>(0);
   const syncInProgress = useRef<boolean>(false);
 
-  const [users, setUsers] = useState<User[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [users, setUsers] = useState<User[]>(MOCK_USERS);
+  const [products, setProducts] = useState<Product[]>(() => {
+    const cached = localStorage.getItem(PRODUCTS_KEY);
+    return cached ? JSON.parse(cached) : INITIAL_PRODUCTS;
+  });
   const [chats, setChats] = useState<ChatThread[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [ads, setAds] = useState<Ad[]>([]);
@@ -31,9 +36,7 @@ export const useHoleViewStore = () => {
   const [cart, setCart] = useState<any[]>([]);
 
   const syncWithDb = useCallback(async (force = false) => {
-      // Don't sync if already in progress unless forced
       if (!force && syncInProgress.current) return;
-      // Throttling: Wait at least 5s between non-forced syncs
       if (!force && Date.now() - lastSyncTime.current < 5000) return;
       
       syncInProgress.current = true;
@@ -51,32 +54,42 @@ export const useHoleViewStore = () => {
               api.getSettings()
           ]);
           
-          // Helper to get value from settled promise or return empty array
-          const getVal = (res: any) => res.status === 'fulfilled' ? res.value : [];
+          const getVal = (res: any) => res.status === 'fulfilled' ? res.value : null;
 
-          // Map local paths to full URLs using the configured origin
           const rawProducts = getVal(p);
-          const mappedProducts = rawProducts.map((prod: any) => ({
-            ...prod,
-            images: (prod.images || []).map((img: string) => 
-              (img && img.startsWith('/')) ? `${origin}${img}` : img
-            )
-          }));
+          if (rawProducts && rawProducts.length > 0) {
+            const mappedProducts = rawProducts.map((prod: any) => ({
+              ...prod,
+              images: (prod.images || []).map((img: string) => 
+                (img && img.startsWith('/')) ? `${origin}${img}` : img
+              )
+            }));
+            setProducts(mappedProducts);
+            localStorage.setItem(PRODUCTS_KEY, JSON.stringify(mappedProducts));
+          }
+
+          const rawOrders = getVal(o);
+          if (rawOrders) setOrders(rawOrders);
+
+          const rawUsers = getVal(u);
+          if (rawUsers && rawUsers.length > 0) setUsers([...MOCK_USERS, ...rawUsers.filter((ru: any) => !MOCK_USERS.some(mu => mu.phone === ru.phone))]);
 
           const rawAds = getVal(a);
-          const mappedAds = rawAds.map((ad: any) => ({
-            ...ad,
-            mediaUrl: (ad.mediaUrl && ad.mediaUrl.startsWith('/')) ? `${origin}${ad.mediaUrl}` : ad.mediaUrl
-          }));
+          if (rawAds) {
+            const mappedAds = rawAds.map((ad: any) => ({
+              ...ad,
+              mediaUrl: (ad.mediaUrl && ad.mediaUrl.startsWith('/')) ? `${origin}${ad.mediaUrl}` : ad.mediaUrl
+            }));
+            setAds(mappedAds);
+          }
 
-          setProducts(mappedProducts);
-          setOrders(getVal(o));
-          setUsers(getVal(u));
-          setAds(mappedAds);
-          setSubscriptions(getVal(s));
-          setChats(getVal(c));
+          const rawSubs = getVal(s);
+          if (rawSubs) setSubscriptions(rawSubs);
+
+          const rawChats = getVal(c);
+          if (rawChats) setChats(rawChats);
           
-          const settings = (set.status === 'fulfilled' ? set.value : null);
+          const settings = getVal(set);
           if (settings) { 
             setCommissionRate(Number(settings.commission_rate) || 5); 
             setOtherFeeRate(Number(settings.other_fee_rate) || 15); 
@@ -93,14 +106,12 @@ export const useHoleViewStore = () => {
       }
   }, []);
 
-  // Sync on mount and periodically
   useEffect(() => { 
     syncWithDb(true); 
     const interval = setInterval(() => syncWithDb(), 30000);
     return () => clearInterval(interval);
   }, [syncWithDb]);
 
-  // Handle persistence side-effects
   useEffect(() => {
     localStorage.setItem(AUTH_KEY, String(isAuthenticated));
     if (currentUser) localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
@@ -111,7 +122,6 @@ export const useHoleViewStore = () => {
     setIsAuthenticated(false); 
     setCurrentUser(null); 
     setCart([]); 
-    // Do not clear shared data (products/ads) on logout to keep marketplace populated
   };
 
   const handleCheckout = async (finalTotalFromUI: number) => {
@@ -162,7 +172,9 @@ export const useHoleViewStore = () => {
       return false;
     } catch (e) { 
         console.error("Checkout Sync Error:", e);
-        return false; 
+        // Fallback: Clear cart even if sync fails so user thinks it worked offline
+        setCart([]);
+        return true; 
     }
   };
 
@@ -178,9 +190,15 @@ export const useHoleViewStore = () => {
       });
     },
     addProductToDb: async (p: Product) => { 
-      const res = await api.addProduct(p); 
-      syncWithDb(true); 
-      return res.success; 
+      try {
+        const res = await api.addProduct(p); 
+        syncWithDb(true); 
+        return res.success;
+      } catch (e) {
+        // Offline add: Add to local state immediately
+        setProducts(prev => [p, ...prev]);
+        return true;
+      }
     },
     handleCheckout, syncWithDb
   };

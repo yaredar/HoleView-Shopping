@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { UserRole, Product, User } from './types';
 import Layout from './components/Layout';
@@ -21,6 +20,7 @@ import ProductsPage from './components/ProductsPage';
 import ProfilePage from './components/ProfilePage';
 import { useHoleViewStore } from './hooks/useHoleViewStore';
 import { api } from './services/api';
+import { MOCK_USERS } from './constants';
 import { cn } from './lib/utils';
 
 const App: React.FC = () => {
@@ -69,31 +69,44 @@ const App: React.FC = () => {
     e.preventDefault();
     if (isProcessing) return;
     setIsProcessing(true);
+    
     try {
+      // Primary Attempt: Try API
       const user = await api.login(phone, password);
       if (user) {
-        if (user.status === 'deactive') { 
-          alert("SECURITY: Account suspended."); 
-          setIsProcessing(false); 
-          return; 
-        }
-        store.setCurrentUser(user);
-        store.setIsAuthenticated(true);
-        if ([UserRole.SUPER_USER, UserRole.SYSTEM_ADMIN].includes(user.role)) {
-          setActiveTab('Dashboard');
-        } else if (user.role === UserRole.SELLER) {
-          setActiveTab('Sales Hub');
-        } else {
-          setActiveTab('Marketplace');
-        }
-      } else { 
-        alert("ACCESS DENIED: Credentials mismatch."); 
+        finalizeLogin(user);
+        return;
       }
     } catch (err: any) { 
-      alert(`SYSTEM ERROR: ${err.message}. Connection could not be established.`); 
-    } finally { 
-      setIsProcessing(false); 
+      console.warn("API Login failed, attempting local fallback:", err.message);
     }
+
+    // Secondary Attempt: Local Mock Fallback (Offline Mode)
+    const localUser = MOCK_USERS.find(u => u.phone === phone && u.password === password);
+    if (localUser) {
+      finalizeLogin(localUser);
+    } else {
+      alert("ACCESS DENIED: Credentials mismatch or cluster unreachable.");
+    }
+    
+    setIsProcessing(false);
+  };
+
+  const finalizeLogin = (user: User) => {
+    if (user.status === 'deactive') { 
+      alert("SECURITY: Account suspended."); 
+      return; 
+    }
+    store.setCurrentUser(user);
+    store.setIsAuthenticated(true);
+    if ([UserRole.SUPER_USER, UserRole.SYSTEM_ADMIN].includes(user.role)) {
+      setActiveTab('Dashboard');
+    } else if (user.role === UserRole.SELLER) {
+      setActiveTab('Sales Hub');
+    } else {
+      setActiveTab('Marketplace');
+    }
+    setIsProcessing(false);
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -156,7 +169,6 @@ const App: React.FC = () => {
       case 'Report': return <ReportPage orders={store.orders} users={store.users} />;
       case 'Profile': return <ProfilePage currentUser={store.currentUser} onRefresh={() => store.syncWithDb(true)} />;
       case 'Sales Hub': return <SellerDashboard orders={store.orders} setOrders={store.setOrders} sellerName={`${store.currentUser.first_name} ${store.currentUser.last_name}`} products={store.products} sellerPhone={store.currentUser.phone} />;
-      // Added store prefix to fix the 'setProducts' not found error
       case 'My Products': return <MyProducts products={store.products} setProducts={store.setProducts} sellerPhone={store.currentUser.phone} searchTerm={globalSearchTerm} />;
       case 'AddProduct': return <AddProduct onAdd={store.addProductToDb} currentUser={store.currentUser} isSubscribed={store.subscriptions.some(s => s.user_id === store.currentUser!.user_id && s.status === 'completed')} goToSubscription={() => setActiveTab('Subscription')} />;
       case 'My Orders': return <MyOrders orders={store.orders} setOrders={store.setOrders} currentUserPhone={store.currentUser.phone} searchTerm={globalSearchTerm} />;

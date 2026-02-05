@@ -141,6 +141,9 @@ const App: React.FC = () => {
 
   const content = useMemo(() => {
     if (!store.currentUser) return null;
+    
+    const currentUserName = `${store.currentUser.first_name} ${store.currentUser.last_name}`;
+
     switch (activeTab) {
       case 'Dashboard': 
         return <Dashboard 
@@ -157,22 +160,113 @@ const App: React.FC = () => {
           isSyncing={store.isSyncing} 
           onRetrySync={() => store.syncWithDb(true)} 
         />;
-      case 'Inbox': return <Inbox chats={store.chats} setChats={store.setChats} activeChatId={activeChatId} setActiveChatId={setActiveChatId} users={store.users} />;
-      case 'Users': return <UsersTable users={store.users} setUsers={store.setUsers} canCreate={true} currentUser={store.currentUser} searchTerm={globalSearchTerm} />;
-      case 'Payments': return <PaymentsTable orders={store.orders} currentUser={store.currentUser} searchTerm={globalSearchTerm} />;
-      case 'Products': return <ProductsPage products={store.products} searchTerm={globalSearchTerm} />;
-      case 'Ads': return <AdsPage ads={store.ads} setAds={store.setAds} />;
-      case 'Subscription': return <SubscriptionPage userRole={store.currentUser.role} currentUserId={store.currentUser.user_id} userName={`${store.currentUser.first_name} ${store.currentUser.last_name}`} userPhone={store.currentUser.phone} users={store.users} subscriptions={store.subscriptions} setSubscriptions={store.setSubscriptions} subscriptionTiers={[]} setSubscriptionTiers={() => {}} onRefresh={() => store.syncWithDb(true)} searchTerm={globalSearchTerm} />;
-      // Fix: Passing setCommissionRate and setOtherFeeRate instead of syncWithDb to match expected prop types.
-      case 'Commission & Tax': return <CommissionTaxPage commissionRate={store.commissionRate} setCommissionRate={store.setCommissionRate} otherFeeRate={store.otherFeeRate} setOtherFeeRate={store.setOtherFeeRate} />;
-      case 'Report': return <ReportPage orders={store.orders} users={store.users} />;
-      case 'Profile': return <ProfilePage currentUser={store.currentUser} onRefresh={() => store.syncWithDb(true)} />;
-      case 'Sales Hub': return <SellerDashboard orders={store.orders} setOrders={store.setOrders} sellerName={`${store.currentUser.first_name} ${store.currentUser.last_name}`} products={store.products} sellerPhone={store.currentUser.phone} />;
-      case 'My Products': return <MyProducts products={store.products} setProducts={store.setProducts} sellerPhone={store.currentUser.phone} searchTerm={globalSearchTerm} />;
-      case 'AddProduct': return <AddProduct onAdd={store.addProductToDb} currentUser={store.currentUser} isSubscribed={store.subscriptions.some(s => s.user_id === store.currentUser!.user_id && s.status === 'completed')} goToSubscription={() => setActiveTab('Subscription')} />;
-      case 'My Orders': return <MyOrders orders={store.orders} setOrders={store.setOrders} currentUserPhone={store.currentUser.phone} searchTerm={globalSearchTerm} />;
-      case 'Cart': return <Cart items={store.cart} setItems={store.setCart} checkout={store.handleCheckout} serviceFeeRate={store.otherFeeRate} />;
-      default: return <Marketplace products={store.products} ads={store.ads} addToCart={(p) => store.addToCart(p)} onSelectProduct={setSelectedProduct} search={globalSearchTerm} />;
+      case 'Inbox': 
+        return <Inbox 
+          chats={store.chats} 
+          setChats={store.setChats} 
+          activeChatId={activeChatId} 
+          setActiveChatId={setActiveChatId} 
+          users={store.users} 
+        />;
+      case 'Users': 
+        return <UsersTable 
+          users={store.users} 
+          setUsers={store.setUsers} 
+          canCreate={true} 
+          currentUser={store.currentUser} 
+          searchTerm={globalSearchTerm} 
+        />;
+      case 'Payments': 
+        return <PaymentsTable 
+          orders={store.orders} 
+          currentUser={store.currentUser} 
+          searchTerm={globalSearchTerm} 
+        />;
+      case 'Products': 
+        return <ProductsPage 
+          products={store.products} 
+          searchTerm={globalSearchTerm} 
+        />;
+      case 'Ads': 
+        return <AdsPage 
+          ads={store.ads} 
+          setAds={store.setAds} 
+        />;
+      case 'Subscription': 
+        return <SubscriptionPage 
+          userRole={store.currentUser.role} 
+          currentUserId={store.currentUser.user_id} 
+          userName={currentUserName} 
+          userPhone={store.currentUser.phone} 
+          users={store.users} 
+          subscriptions={store.subscriptions} 
+          setSubscriptions={store.setSubscriptions} 
+          subscriptionTiers={[]} 
+          setSubscriptionTiers={() => {}} 
+          onRefresh={() => store.syncWithDb(true)} 
+          searchTerm={globalSearchTerm} 
+        />;
+      case 'Commission & Tax': 
+        return <CommissionTaxPage 
+          commissionRate={store.commissionRate} 
+          setCommissionRate={store.setCommissionRate} 
+          otherFeeRate={store.otherFeeRate} 
+          setOtherFeeRate={store.setOtherFeeRate} 
+        />;
+      case 'Report': 
+        return <ReportPage 
+          orders={store.orders} 
+          users={store.users} 
+        />;
+      case 'Profile': 
+        return <ProfilePage 
+          currentUser={store.currentUser} 
+          onRefresh={() => store.syncWithDb(true)} 
+        />;
+      case 'Sales Hub': 
+        return <SellerDashboard 
+          orders={store.orders} 
+          setOrders={store.setOrders} 
+          sellerName={currentUserName} 
+          products={store.products} 
+          sellerPhone={store.currentUser.phone} 
+        />;
+      case 'My Products': 
+        return <MyProducts 
+          products={store.products} 
+          setProducts={store.setProducts} 
+          sellerPhone={store.currentUser.phone} 
+          searchTerm={globalSearchTerm} 
+        />;
+      case 'AddProduct': 
+        return <AddProduct 
+          onAdd={store.addProductToDb} 
+          currentUser={store.currentUser} 
+          isSubscribed={store.subscriptions.some(s => s.user_id === store.currentUser!.user_id && s.status === 'completed')} 
+          goToSubscription={() => setActiveTab('Subscription')} 
+        />;
+      case 'My Orders': 
+        return <MyOrders 
+          orders={store.orders} 
+          setOrders={store.setOrders} 
+          currentUserPhone={store.currentUser.phone} 
+          searchTerm={globalSearchTerm} 
+        />;
+      case 'Cart': 
+        return <Cart 
+          items={store.cart} 
+          setItems={store.setCart} 
+          checkout={store.handleCheckout} 
+          serviceFeeRate={store.otherFeeRate} 
+        />;
+      default: 
+        return <Marketplace 
+          products={store.products} 
+          ads={store.ads} 
+          addToCart={(p) => store.addToCart(p)} 
+          onSelectProduct={setSelectedProduct} 
+          search={globalSearchTerm} 
+        />;
     }
   }, [activeTab, store, activeChatId, globalSearchTerm]);
 
@@ -215,7 +309,7 @@ const App: React.FC = () => {
                 <option value={UserRole.SELLER}>Seller</option>
               </select>
               <input type="password" placeholder="Key" className="input-standard py-3" value={password} onChange={e => setPassword(e.target.value)} required />
-              <input type="password" placeholder="Confirm" className="input-standard py-3" value={confirmPassword} onChange={e => setPassword(e.target.value)} required />
+              <input type="password" placeholder="Confirm" className="input-standard py-3" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
               <button type="submit" disabled={isProcessing} className="btn-primary !bg-emerald-500 w-full text-xs">Complete Registration</button>
             </form>
           )}

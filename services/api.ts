@@ -23,7 +23,7 @@ export const setApiOrigin = (url: string | null) => {
   }
 };
 
-export const BASE_URL = () => `${getApiOrigin()}`;
+export const BASE_URL = 'https://api.holeview.org';
 
 export const WS_URL = () => {
   const origin = getApiOrigin();

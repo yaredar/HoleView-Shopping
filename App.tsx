@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { UserRole, Product, User } from './types';
 import Layout from './components/Layout';
@@ -19,7 +20,7 @@ import Dashboard from './components/Dashboard';
 import ProductsPage from './components/ProductsPage';
 import ProfilePage from './components/ProfilePage';
 import { useHoleViewStore } from './hooks/useHoleViewStore';
-import { api, setApiOrigin, getApiOrigin } from './services/api';
+import { api } from './services/api';
 import { cn } from './lib/utils';
 
 const App: React.FC = () => {
@@ -30,7 +31,7 @@ const App: React.FC = () => {
   const [globalSearchTerm, setGlobalSearchTerm] = useState('');
 
   // Auth States
-  const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -42,8 +43,6 @@ const App: React.FC = () => {
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [serverStatus, setServerStatus] = useState<'online' | 'no_db' | 'offline' | 'checking'>('checking');
-  const [showNodeConfig, setShowNodeConfig] = useState(false);
-  const [tempApiUrl, setTempApiUrl] = useState(getApiOrigin());
 
   const checkHealth = async () => {
     setServerStatus('checking');
@@ -65,17 +64,6 @@ const App: React.FC = () => {
     const interval = setInterval(checkHealth, 30000); 
     return () => clearInterval(interval);
   }, []);
-
-  const handleUpdateNode = () => {
-    setApiOrigin(tempApiUrl);
-    setShowNodeConfig(false);
-    checkHealth();
-    if (store.isAuthenticated) {
-      store.syncWithDb(true);
-    } else {
-      window.location.reload();
-    }
-  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,7 +90,7 @@ const App: React.FC = () => {
         alert("ACCESS DENIED: Credentials mismatch."); 
       }
     } catch (err: any) { 
-      alert(`SYSTEM ERROR: ${err.message}. Check your Node Configuration.`); 
+      alert(`SYSTEM ERROR: ${err.message}. Connection could not be established.`); 
     } finally { 
       setIsProcessing(false); 
     }
@@ -168,6 +156,7 @@ const App: React.FC = () => {
       case 'Report': return <ReportPage orders={store.orders} users={store.users} />;
       case 'Profile': return <ProfilePage currentUser={store.currentUser} onRefresh={() => store.syncWithDb(true)} />;
       case 'Sales Hub': return <SellerDashboard orders={store.orders} setOrders={store.setOrders} sellerName={`${store.currentUser.first_name} ${store.currentUser.last_name}`} products={store.products} sellerPhone={store.currentUser.phone} />;
+      // Added store prefix to fix the 'setProducts' not found error
       case 'My Products': return <MyProducts products={store.products} setProducts={store.setProducts} sellerPhone={store.currentUser.phone} searchTerm={globalSearchTerm} />;
       case 'AddProduct': return <AddProduct onAdd={store.addProductToDb} currentUser={store.currentUser} isSubscribed={store.subscriptions.some(s => s.user_id === store.currentUser!.user_id && s.status === 'completed')} goToSubscription={() => setActiveTab('Subscription')} />;
       case 'My Orders': return <MyOrders orders={store.orders} setOrders={store.setOrders} currentUserPhone={store.currentUser.phone} searchTerm={globalSearchTerm} />;
@@ -189,7 +178,6 @@ const App: React.FC = () => {
                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
                  {serverStatus === 'online' ? 'Cluster Active' : 'Cluster Offline'}
                </span>
-               <button onClick={() => setShowNodeConfig(true)} className="ml-2 text-[9px] font-black text-primary underline uppercase tracking-widest">Config Node</button>
             </div>
           </div>
 
@@ -219,25 +207,6 @@ const App: React.FC = () => {
               <input type="password" placeholder="Confirm" className="input-standard py-3" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
               <button type="submit" disabled={isProcessing} className="btn-primary !bg-emerald-500 w-full text-xs">Complete Registration</button>
             </form>
-          )}
-
-          {showNodeConfig && (
-            <div className="absolute inset-0 bg-white/95 backdrop-blur rounded-[40px] z-50 flex flex-col p-10 text-left animate-scale-up">
-               <h4 className="text-xl font-black uppercase text-slate-900 tracking-tighter mb-4">Infrastructure Uplink</h4>
-               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed mb-6">
-                 Set your backend API node origin (e.g., http://your-ip:3001) to synchronize the cluster.
-               </p>
-               <input 
-                 className="input-standard mb-4" 
-                 placeholder="http://1.2.3.4:3001" 
-                 value={tempApiUrl} 
-                 onChange={e => setTempApiUrl(e.target.value)} 
-               />
-               <div className="flex gap-3 mt-auto">
-                  <button onClick={() => setShowNodeConfig(false)} className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px]">Cancel</button>
-                  <button onClick={handleUpdateNode} className="flex-2 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] shadow-xl">Apply Change</button>
-               </div>
-            </div>
           )}
         </div>
       </div>

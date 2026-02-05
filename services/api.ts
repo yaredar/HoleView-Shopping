@@ -49,7 +49,8 @@ async function request(endpoint: string, options: RequestInit = {}) {
         'Content-Type': 'application/json', 
         ...options.headers 
       }, 
-      mode: 'cors', // Enable CORS for cross-domain requests (main vs api subdomain)
+      mode: 'cors', // Explicitly enable CORS mode for cross-domain requests
+      credentials: 'omit', // Change to 'include' if using cookies/sessions on backend
       signal: controller.signal 
     });
     clearTimeout(timer);
@@ -79,6 +80,7 @@ export const api = {
       const data = await res.json();
       return { online: true, database: data.database === true, origin };
     } catch (e) { 
+      console.error("Health check failure:", e);
       return { online: false, database: false, origin }; 
     }
   },

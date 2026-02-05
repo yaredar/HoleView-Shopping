@@ -23,7 +23,7 @@ const AdsPage: React.FC<AdsPageProps> = ({ ads, setAds }) => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Permanently terminate this feed?")) return;
+    if (!window.confirm("Permanently remove this campaign from the feed?")) return;
     setIsSyncing(true);
     try {
       await api.deleteAd(id);
@@ -36,11 +36,14 @@ const AdsPage: React.FC<AdsPageProps> = ({ ads, setAds }) => {
     if (!form.mediaUrl || isSyncing) return;
     setIsSyncing(true);
     try {
+        // Step 1: Upload to S3/Local
+        const finalMediaUrl = await api.uploadToS3(form.mediaUrl, form.title);
+        
         const newAd: Ad = {
           id: `AD-${Date.now()}`,
           title: form.title,
           mediaType: form.type,
-          mediaUrl: form.mediaUrl,
+          mediaUrl: finalMediaUrl,
           destinationUrl: form.destUrl,
           isActive: true,
           adsenseCode: form.adsense
@@ -64,14 +67,22 @@ const AdsPage: React.FC<AdsPageProps> = ({ ads, setAds }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {ads.map(ad => (
-          <div key={ad.id} className={cn("bg-white rounded-[45px] border border-slate-100 shadow-soft overflow-hidden flex flex-col", !ad.isActive && "opacity-60")}>
+          <div key={ad.id} className={cn("bg-white rounded-[45px] border border-slate-100 shadow-soft overflow-hidden flex flex-col", !ad.isActive && "opacity-60 grayscale-[0.5]")}>
             <div className="h-64 bg-slate-900 relative">
                {ad.mediaType === 'video' ? <video src={ad.mediaUrl} className="w-full h-full object-cover" muted autoPlay loop playsInline /> : <img src={ad.mediaUrl} className="w-full h-full object-cover" />}
                <div className="absolute top-6 right-6 flex gap-2">
-                 <button onClick={() => handleToggle(ad)} className={cn("px-4 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest shadow-xl", ad.isActive ? "bg-emerald-500 text-white" : "bg-orange-500 text-white")}>
+                 <button 
+                   onClick={() => handleToggle(ad)} 
+                   className={cn(
+                     "px-4 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest shadow-xl transition-all", 
+                     ad.isActive ? "bg-emerald-500 text-white" : "bg-orange-500 text-white"
+                   )}
+                 >
                    {ad.isActive ? 'Streaming' : 'Paused'}
                  </button>
-                 <button onClick={() => handleDelete(ad.id)} className="p-2 bg-red-500 text-white rounded-xl shadow-xl"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+                 <button onClick={() => handleDelete(ad.id)} className="p-2 bg-red-500 text-white rounded-xl shadow-xl hover:bg-red-600">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                 </button>
                </div>
             </div>
             <div className="p-8 text-left">
@@ -102,7 +113,7 @@ const AdsPage: React.FC<AdsPageProps> = ({ ads, setAds }) => {
                <input className="input-standard" placeholder="Target Link (Optional)..." value={form.destUrl} onChange={e => setForm({...form, destUrl: e.target.value})} />
             </div>
             <button type="submit" disabled={isSyncing} className="btn-primary w-full py-5">{isSyncing ? 'Transmitting...' : 'Uplink Feed'}</button>
-          </form>
+          </div>
         </div>
       )}
     </div>

@@ -17,7 +17,10 @@ async function request(endpoint: string, options: RequestInit = {}) {
   try {
     const response = await fetch(url, { ...options, headers, mode: 'cors', signal: controller.signal });
     clearTimeout(timer);
-    if (!response.ok) { const err = await response.json().catch(() => ({})); throw new Error(err.error || `Error ${response.status}`); }
+    if (!response.ok) { 
+      const err = await response.json().catch(() => ({})); 
+      throw new Error(err.error || `Error ${response.status}`); 
+    }
     return await response.json();
   } catch (err: any) {
     clearTimeout(timer);
@@ -38,12 +41,16 @@ export const api = {
   async login(phone: string, key: string) { return request('/login', { method: 'POST', body: JSON.stringify({ phone, password: key }) }); },
   async register(u: User) { return request('/register', { method: 'POST', body: JSON.stringify(u) }); },
   async getUsers() { return request('/users'); },
-  async updateProfile(u: Partial<User>) { return request('/users/update', { method: 'POST', body: JSON.stringify(u) }); },
-  async approveVerification(user_id: string, verification_status: VerificationStatus) { return request('/users/verify', { method: 'POST', body: JSON.stringify({ user_id, verification_status }) }); },
+  // Fix for error in components/ProfilePage.tsx: Add updateProfile method
+  async updateProfile(u: Partial<User>) { return request('/users/profile', { method: 'POST', body: JSON.stringify(u) }); },
+  async approveVerification(user_id: string, status: VerificationStatus) { return request('/users/verify', { method: 'POST', body: JSON.stringify({ user_id, verification_status: status }) }); },
   async changePassword(user_id: string, password: string) { return request('/users/password', { method: 'POST', body: JSON.stringify({ user_id, password }) }); },
   async getProducts() { return request('/products'); },
   async addProduct(p: Product) { return request('/products', { method: 'POST', body: JSON.stringify(p) }); },
-  async uploadToS3(image: string, name: string) { const data = await request('/upload', { method: 'POST', body: JSON.stringify({ image, name }) }); return data.url; },
+  async uploadToS3(image: string, name: string) { 
+    const data = await request('/upload', { method: 'POST', body: JSON.stringify({ image, name }) }); 
+    return data.url; 
+  },
   async getOrders() { return request('/orders'); },
   async checkout(orders: Order[]) { return request('/checkout', { method: 'POST', body: JSON.stringify(orders) }); },
   async getAds() { return request('/ads'); },

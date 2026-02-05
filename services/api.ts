@@ -49,8 +49,7 @@ async function request(endpoint: string, options: RequestInit = {}) {
         'Content-Type': 'application/json', 
         ...options.headers 
       }, 
-      mode: 'cors', // Explicitly enable CORS mode for cross-domain requests
-      credentials: 'omit', // Change to 'include' if using cookies/sessions on backend
+      mode: 'cors', // Mandatory for cross-domain PWA functionality
       signal: controller.signal 
     });
     clearTimeout(timer);
@@ -80,7 +79,7 @@ export const api = {
       const data = await res.json();
       return { online: true, database: data.database === true, origin };
     } catch (e) { 
-      console.error("Health check failure:", e);
+      console.warn("Health check lookup failed at origin:", origin);
       return { online: false, database: false, origin }; 
     }
   },

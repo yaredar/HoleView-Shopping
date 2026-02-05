@@ -1,8 +1,8 @@
 import { User, Product, Order, Ad, Subscription, ChatThread, VerificationStatus } from '../types';
 
 const STORAGE_KEY = 'hv_api_origin';
-// Use environment variable from Vite or fallback to a standard default
-const DEFAULT_ORIGIN = (import.meta as any).env?.VITE_API_URL || 'https://api.holeview.org';
+// Smart fallback: Use window.location.origin if no env var is provided
+const DEFAULT_ORIGIN = (import.meta as any).env?.VITE_API_URL || window.location.origin;
 
 export const getApiOrigin = () => {
   const saved = localStorage.getItem(STORAGE_KEY);

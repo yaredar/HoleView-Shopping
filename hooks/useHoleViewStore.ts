@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Product, User, ChatThread, Order, Ad, Subscription, SubscriptionTier } from '../types';
+import { Product, User, ChatThread, Order, Ad, Subscription } from '../types';
 import { api } from '../services/api';
-import { SUBSCRIPTION_TIERS } from '../constants';
 
 export const useHoleViewStore = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -36,7 +35,10 @@ export const useHoleViewStore = () => {
           setAds(a || []);
           setSubscriptions(s || []);
           setChats(c || []);
-          if (set) { setCommissionRate(Number(set.commission_rate)); setOtherFeeRate(Number(set.other_fee_rate)); }
+          if (set) { 
+            setCommissionRate(Number(set.commission_rate)); 
+            setOtherFeeRate(Number(set.other_fee_rate)); 
+          }
           setIsDbConnected(true);
           lastSyncTime.current = Date.now();
       } catch (e) { setIsDbConnected(false); } finally { setIsSyncing(false); syncInProgress.current = false; }
@@ -46,32 +48,50 @@ export const useHoleViewStore = () => {
 
   const logout = () => { setIsAuthenticated(false); setCurrentUser(null); setCart([]); };
 
-  const handleCheckout = async () => {
+  const handleCheckout = async (finalTotalFromUI?: number) => {
     if (!currentUser || cart.length === 0) return false;
     try {
       const bySeller: Record<string, any[]> = {};
-      cart.forEach(i => { const k = i.seller_phone; if (!bySeller[k]) bySeller[k] = []; bySeller[k].push(i); });
+      cart.forEach(i => { 
+        const k = i.seller_phone || '0000'; 
+        if (!bySeller[k]) bySeller[k] = []; 
+        bySeller[k].push(i); 
+      });
+
       const newOrders: Order[] = Object.keys(bySeller).map(k => {
         const items = bySeller[k];
         const sub = items.reduce((s, i) => s + (i.price * i.quantity), 0);
         const ship = items.reduce((s, i) => s + (i.shipping_fee || 0), 0);
         const fee = sub * (otherFeeRate / 100);
+        
         return {
-          id: `ORD-${Date.now()}-${Math.floor(Math.random() * 100)}`,
+          id: `ORD-${Date.now()}-${Math.floor(Math.random() * 999)}`,
           order_number: `HV-${Math.floor(100000 + Math.random() * 900000)}`,
           buyer_name: `${currentUser.first_name} ${currentUser.last_name}`,
           buyer_phone: currentUser.phone,
-          seller_name: items[0].seller_name,
+          seller_name: items[0].seller_name || 'Unknown',
           seller_phone: k,
           total: sub + ship + fee,
           status: 'pending',
           timestamp: new Date().toISOString(),
           is_paid_confirmed: false,
-          items: items.map(si => ({ id: si.id, name: si.name, price: si.price, shipping_fee: si.shipping_fee, quantity: si.quantity, image: si.images[0] }))
+          items: items.map(si => ({ 
+            id: si.id, 
+            name: si.name, 
+            price: si.price, 
+            shipping_fee: si.shipping_fee, 
+            quantity: si.quantity, 
+            image: si.images[0] 
+          }))
         };
       });
+
       const res = await api.checkout(newOrders);
-      if (res.success) { setCart([]); syncWithDb(true); return true; }
+      if (res.success) { 
+        setCart([]); 
+        syncWithDb(true); 
+        return true; 
+      }
       return false;
     } catch (e) { return false; }
   };
@@ -87,7 +107,11 @@ export const useHoleViewStore = () => {
         return [...prev, { ...p, quantity: q }];
       });
     },
-    addProductToDb: async (p: Product) => { await api.addProduct(p); syncWithDb(true); return true; },
+    addProductToDb: async (p: Product) => { 
+      const res = await api.addProduct(p); 
+      syncWithDb(true); 
+      return res.success; 
+    },
     handleCheckout, syncWithDb
   };
 };

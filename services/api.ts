@@ -23,7 +23,7 @@ export const setApiOrigin = (url: string | null) => {
   }
 };
 
-export const BASE_URL = () => `${getApiOrigin()}/api`;
+export const BASE_URL = () => `${getApiOrigin()}`;
 
 export const WS_URL = () => {
   const origin = getApiOrigin();

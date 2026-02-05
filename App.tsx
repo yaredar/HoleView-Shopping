@@ -42,10 +42,10 @@ const App: React.FC = () => {
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.BUYER);
 
   const [isProcessing, setIsProcessing] = useState(false);
-  const [serverStatus, setServerStatus] = useState<'online' | 'no_db' | 'offline' | 'checking'>('checking');
+  const [serverStatus, setServerStatus] = useState<'online' | 'no_db' | 'offline' | 'checking'>('online');
 
+  // Background health check - doesn't block UI
   const checkHealth = async () => {
-    setServerStatus('checking');
     try {
       const health = await api.checkHealth();
       if (health.online) {
@@ -61,7 +61,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     checkHealth();
-    const interval = setInterval(checkHealth, 30000); 
+    const interval = setInterval(checkHealth, 45000); 
     return () => clearInterval(interval);
   }, []);
 
@@ -71,7 +71,6 @@ const App: React.FC = () => {
     setIsProcessing(true);
     
     try {
-      // Primary Attempt: Try API
       const user = await api.login(phone, password);
       if (user) {
         finalizeLogin(user);
@@ -81,7 +80,6 @@ const App: React.FC = () => {
       console.warn("API Login failed, attempting local fallback:", err.message);
     }
 
-    // Secondary Attempt: Local Mock Fallback (Offline Mode)
     const localUser = MOCK_USERS.find(u => u.phone === phone && u.password === password);
     if (localUser) {
       finalizeLogin(localUser);
@@ -165,7 +163,8 @@ const App: React.FC = () => {
       case 'Products': return <ProductsPage products={store.products} searchTerm={globalSearchTerm} />;
       case 'Ads': return <AdsPage ads={store.ads} setAds={store.setAds} />;
       case 'Subscription': return <SubscriptionPage userRole={store.currentUser.role} currentUserId={store.currentUser.user_id} userName={`${store.currentUser.first_name} ${store.currentUser.last_name}`} userPhone={store.currentUser.phone} users={store.users} subscriptions={store.subscriptions} setSubscriptions={store.setSubscriptions} subscriptionTiers={[]} setSubscriptionTiers={() => {}} onRefresh={() => store.syncWithDb(true)} searchTerm={globalSearchTerm} />;
-      case 'Commission & Tax': return <CommissionTaxPage commissionRate={store.commissionRate} setCommissionRate={() => {}} otherFeeRate={store.otherFeeRate} setOtherFeeRate={() => {}} />;
+      // Fix: Passing setCommissionRate and setOtherFeeRate instead of syncWithDb to match expected prop types.
+      case 'Commission & Tax': return <CommissionTaxPage commissionRate={store.commissionRate} setCommissionRate={store.setCommissionRate} otherFeeRate={store.otherFeeRate} setOtherFeeRate={store.setOtherFeeRate} />;
       case 'Report': return <ReportPage orders={store.orders} users={store.users} />;
       case 'Profile': return <ProfilePage currentUser={store.currentUser} onRefresh={() => store.syncWithDb(true)} />;
       case 'Sales Hub': return <SellerDashboard orders={store.orders} setOrders={store.setOrders} sellerName={`${store.currentUser.first_name} ${store.currentUser.last_name}`} products={store.products} sellerPhone={store.currentUser.phone} />;
@@ -186,9 +185,9 @@ const App: React.FC = () => {
             <h1 className="text-2xl font-black uppercase text-slate-900 mt-6 tracking-tighter">HoleView</h1>
             
             <div className="flex items-center gap-2 mt-4">
-               <div className={cn("w-2 h-2 rounded-full", serverStatus === 'online' ? "bg-emerald-500 shadow-emerald-glow" : "bg-red-500 animate-pulse")} />
+               <div className={cn("w-2 h-2 rounded-full transition-colors duration-500", serverStatus === 'online' ? "bg-emerald-500 shadow-emerald-glow" : (serverStatus === 'offline' ? "bg-red-500 shadow-red-glow" : "bg-orange-500 animate-pulse"))} />
                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                 {serverStatus === 'online' ? 'Cluster Active' : 'Cluster Offline'}
+                 {serverStatus === 'online' ? 'Cluster Active' : (serverStatus === 'offline' ? 'Cluster Offline' : 'Verifying Link...')}
                </span>
             </div>
           </div>
@@ -216,7 +215,7 @@ const App: React.FC = () => {
                 <option value={UserRole.SELLER}>Seller</option>
               </select>
               <input type="password" placeholder="Key" className="input-standard py-3" value={password} onChange={e => setPassword(e.target.value)} required />
-              <input type="password" placeholder="Confirm" className="input-standard py-3" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
+              <input type="password" placeholder="Confirm" className="input-standard py-3" value={confirmPassword} onChange={e => setPassword(e.target.value)} required />
               <button type="submit" disabled={isProcessing} className="btn-primary !bg-emerald-500 w-full text-xs">Complete Registration</button>
             </form>
           )}
@@ -227,7 +226,18 @@ const App: React.FC = () => {
 
   return (
     <Layout userRole={store.currentUser!.role} userName={`${store.currentUser!.first_name} ${store.currentUser!.last_name}`} onLogout={store.logout} activeTab={activeTab} setActiveTab={setActiveTab} cartCount={store.cart.length} onSearch={setGlobalSearchTerm} searchValue={globalSearchTerm} subscriptions={store.subscriptions}>
+      {/* Background Sync Indicator */}
+      {store.isSyncing && (
+        <div className="fixed bottom-24 right-8 z-[200] animate-bounce">
+          <div className="bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-full border border-slate-700 flex items-center gap-2 shadow-2xl">
+             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+             <span className="text-[8px] font-black text-white uppercase tracking-widest">Refreshing Data Stream</span>
+          </div>
+        </div>
+      )}
+      
       {content}
+      
       {selectedProduct && <ProductDetails product={selectedProduct} onClose={() => setSelectedProduct(null)} addToCart={store.addToCart} onCheckout={(p, q) => { store.addToCart(p, q); setActiveTab('Cart'); setSelectedProduct(null); }} onStartChat={(p) => { setActiveTab('Inbox'); setSelectedProduct(null); }} />}
     </Layout>
   );

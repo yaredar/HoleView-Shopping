@@ -1,30 +1,51 @@
 import { User, Product, Order, Ad, Subscription, ChatThread, VerificationStatus } from '../types';
 
 const STORAGE_KEY = 'hv_api_origin';
-const DEFAULT_ORIGIN = 'https://api.holeview.org';
+// Use environment variable from Vite or fallback to a standard default
+const DEFAULT_ORIGIN = (import.meta as any).env?.VITE_API_URL || 'https://api.holeview.org';
 
-export const getApiOrigin = () => localStorage.getItem(STORAGE_KEY) || DEFAULT_ORIGIN;
-export const setApiOrigin = (url: string | null) => url ? localStorage.setItem(STORAGE_KEY, url.replace(/\/$/, '')) : localStorage.removeItem(STORAGE_KEY);
+export const getApiOrigin = () => {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) return saved;
+  return DEFAULT_ORIGIN;
+};
+
+export const setApiOrigin = (url: string | null) => {
+  if (url) {
+    const formatted = url.replace(/\/$/, ''); // Remove trailing slash
+    localStorage.setItem(STORAGE_KEY, formatted);
+  } else {
+    localStorage.removeItem(STORAGE_KEY);
+  }
+};
+
 export const BASE_URL = () => `${getApiOrigin()}/api`;
 export const WS_URL = () => getApiOrigin().replace(/^http/, 'ws');
 
 async function request(endpoint: string, options: RequestInit = {}) {
   const origin = getApiOrigin();
   const url = `${origin}/api${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
-  const headers = { 'Accept': 'application/json', 'Content-Type': 'application/json', ...options.headers };
+  const headers = { 
+    'Accept': 'application/json', 
+    'Content-Type': 'application/json', 
+    ...options.headers 
+  };
+  
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10000);
+  const timer = setTimeout(() => controller.abort(), 15000); 
+  
   try {
     const response = await fetch(url, { ...options, headers, mode: 'cors', signal: controller.signal });
     clearTimeout(timer);
+    
     if (!response.ok) { 
       const err = await response.json().catch(() => ({})); 
-      throw new Error(err.error || `Error ${response.status}`); 
+      throw new Error(err.error || `System Error ${response.status}`); 
     }
     return await response.json();
   } catch (err: any) {
     clearTimeout(timer);
-    if (err.name === 'AbortError') throw new Error("TIMEOUT");
+    if (err.name === 'AbortError') throw new Error("NETWORK_TIMEOUT");
     throw err;
   }
 }
@@ -34,14 +55,16 @@ export const api = {
     const origin = getApiOrigin();
     try {
       const res = await fetch(`${origin}/api/health`, { mode: 'cors', cache: 'no-store' });
+      if (!res.ok) return { online: true, database: false, origin };
       const data = await res.json();
       return { online: true, database: data.database === true, origin };
-    } catch (e) { return { online: false, database: false, origin }; }
+    } catch (e) { 
+      return { online: false, database: false, origin }; 
+    }
   },
   async login(phone: string, key: string) { return request('/login', { method: 'POST', body: JSON.stringify({ phone, password: key }) }); },
   async register(u: User) { return request('/register', { method: 'POST', body: JSON.stringify(u) }); },
   async getUsers() { return request('/users'); },
-  // Fix for error in components/ProfilePage.tsx: Add updateProfile method
   async updateProfile(u: Partial<User>) { return request('/users/profile', { method: 'POST', body: JSON.stringify(u) }); },
   async approveVerification(user_id: string, status: VerificationStatus) { return request('/users/verify', { method: 'POST', body: JSON.stringify({ user_id, verification_status: status }) }); },
   async changePassword(user_id: string, password: string) { return request('/users/password', { method: 'POST', body: JSON.stringify({ user_id, password }) }); },

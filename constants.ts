@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 import { UserRole, SubscriptionLevel, User, Product } from './types';
-=======
-import { UserRole, SubscriptionLevel } from './types';
->>>>>>> f68ad67ad0c2b0887abb21b895af908c5e755d4d
 
 export const COLORS = {
   primary: '#FF5722',
@@ -80,7 +76,6 @@ export const INITIAL_PRODUCT_TYPES = [
   'others'
 ];
 
-<<<<<<< HEAD
 export const INITIAL_PRODUCTS: Product[] = [
   {
     id: 'P-1',
@@ -115,6 +110,3 @@ export const INITIAL_PRODUCTS: Product[] = [
     stock: 12
   }
 ];
-=======
-export const INITIAL_PRODUCTS = [];
->>>>>>> f68ad67ad0c2b0887abb21b895af908c5e755d4d

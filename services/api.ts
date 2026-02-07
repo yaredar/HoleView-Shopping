@@ -11,7 +11,7 @@ export const getApiOrigin = () => {
   if (saved) return saved;
   
   // Default to production API if no override exists
-  return 'https://api.holeview.org'; 
+  return 'https://3.148.177.49:3001'; 
 };
 
 export const setApiOrigin = (url: string | null) => {

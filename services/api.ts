@@ -23,7 +23,7 @@ export const setApiOrigin = (url: string | null) => {
   }
 };
 
-export const BASE_URL = () => `${getApiOrigin()}`;
+export const BASE_URL = () => `${getApiOrigin()}/api`;
 
 export const WS_URL = () => {
   const origin = getApiOrigin();
@@ -90,6 +90,9 @@ export const api = {
   },
   async login(phone: string, key: string) { return request('/login', { method: 'POST', body: JSON.stringify({ phone, password: key }) }); },
   async register(u: User) { return request('/register', { method: 'POST', body: JSON.stringify(u) }); },
+  async resetPassword(phone: string, firstName: string, newKey: string) { 
+    return request('/reset-password', { method: 'POST', body: JSON.stringify({ phone, first_name: firstName, new_password: newKey }) }); 
+  },
   async getUsers() { return request('/users'); },
   async updateProfile(u: Partial<User>) { return request('/users/profile', { method: 'POST', body: JSON.stringify(u) }); },
   async approveVerification(user_id: string, status: VerificationStatus) { return request('/users/verify', { method: 'POST', body: JSON.stringify({ user_id, verification_status: status }) }); },

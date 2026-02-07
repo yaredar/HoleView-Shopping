@@ -31,6 +31,6 @@ export default defineConfig({
   },
   define: {
     'process.env.API_KEY': JSON.stringify(process.env.API_KEY || ''),
-    'process.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL || 'https://api.holeview.org')
+    'process.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL || )
   }
 });

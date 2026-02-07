@@ -3,14 +3,14 @@ import { User, Product, Order, Ad, Subscription, ChatThread, VerificationStatus 
 const STORAGE_KEY = 'hv_api_origin';
 
 /**
- * PRODUCTION ORIGIN: https://api.holeview.org
- * This is the primary cluster endpoint for EC2 + Cloudflare deployments.
+ * PRODUCTION ORIGIN: https://3.148.177.49:3001
+ * Primary endpoint for EC2 + Cloudflare cluster communication.
  */
 export const getApiOrigin = () => {
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) return saved;
   
-  // Default to production API if no override exists
+  // Default to requested EC2 Public IP
   return 'https://3.148.177.49:3001'; 
 };
 
@@ -27,7 +27,6 @@ export const BASE_URL = () => `${getApiOrigin()}/api`;
 
 export const WS_URL = () => {
   const origin = getApiOrigin();
-  // Cloudflare requires wss:// for secure connections
   if (origin.startsWith('https')) {
     return origin.replace(/^https/, 'wss') + '/ws';
   }
@@ -49,7 +48,7 @@ async function request(endpoint: string, options: RequestInit = {}) {
         'Content-Type': 'application/json', 
         ...options.headers 
       }, 
-      mode: 'cors', // Mandatory for cross-domain PWA functionality
+      mode: 'cors',
       signal: controller.signal 
     });
     clearTimeout(timer);
@@ -70,7 +69,6 @@ export const api = {
   async checkHealth() {
     const origin = getApiOrigin();
     try {
-      // Use no-cache and explicit headers to satisfy preflight checks
       const res = await fetch(`${origin}/api/health`, { 
         mode: 'cors',
         method: 'GET',
@@ -84,7 +82,6 @@ export const api = {
       const data = await res.json();
       return { online: true, database: data.database === true, origin };
     } catch (e) { 
-      // Silently log health failures to keep console clean for users
       return { online: false, database: false, origin }; 
     }
   },

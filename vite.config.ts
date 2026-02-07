@@ -3,7 +3,6 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   server: {
     port: 5173,
-<<<<<<< HEAD
     host: '0.0.0.0', 
     strictPort: false,
     proxy: {
@@ -26,23 +25,12 @@ export default defineConfig({
   build: {
     target: 'esnext',
     outDir: 'dist',
+    rollupOptions: {
+      external: [],
+    }
   },
   define: {
     'process.env.API_KEY': JSON.stringify(process.env.API_KEY || ''),
-    // Defaulting to the production domain for EC2/Cloudflare
-    'process.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL || 'https://api.holeview.org')
-=======
-    host: '127.0.0.1',
-    strictPort: false,
-  },
-  build: {
-    target: 'esnext',
-  },
-  define: {
-    'process.env': {
-      API_KEY: process.env.API_KEY || '',
-      VITE_API_URL: process.env.VITE_API_URL || 'http://127.0.0.1:3005'
-    }
->>>>>>> f68ad67ad0c2b0887abb21b895af908c5e755d4d
+    'process.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL || 'https://3.148.177.49:3001')
   }
 });

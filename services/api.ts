@@ -3,7 +3,7 @@ import { User, Product, Order, Ad, Subscription, ChatThread, VerificationStatus 
 const STORAGE_KEY = 'hv_api_origin';
 
 /**
- * PRODUCTION ORIGIN: https://3.148.177.49:3001
+ * PRODUCTION ORIGIN: https://api.holeview.org
  * Primary endpoint for EC2 + Cloudflare cluster communication.
  */
 export const getApiOrigin = () => {
@@ -11,7 +11,7 @@ export const getApiOrigin = () => {
   if (saved) return saved;
   
   // Default to requested EC2 Public IP
-  return 'https://3.148.177.49:3001'; 
+  return 'https://api.holeview.org'; 
 };
 
 export const setApiOrigin = (url: string | null) => {
